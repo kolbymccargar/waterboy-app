@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Waterboy Delivery — App Portal</title>
+  <meta name="description" content="Waterboy Delivery management platform. Customer ordering, driver dispatch, and admin dashboard." />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#00D4FF" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Waterboy" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="stylesheet" href="css/global.css" />
+  <style>
+    /* ── Splash Page Specific ─────────────────────────────── */
+    body { overflow-x: hidden; }
+
+    .splash-bg {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,212,255,0.07) 0%, transparent 70%),
+                  var(--blue-deep);
+      z-index: -1;
+    }
+
+    /* Particles canvas */
+    #particles-canvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Main layout */
+    .splash-wrap {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Logo / Brand */
+    .splash-brand {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 14px;
+      animation: slideDown 0.6s ease 0.1s both;
+    }
+    .splash-logo {
+      width: 72px;
+      height: 72px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 20px rgba(0,212,255,0.4));
+      animation: dropFloat 4s ease-in-out infinite;
+    }
+    .splash-title {
+      font-family: var(--font-head);
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: var(--white-90);
+      letter-spacing: -0.01em;
+      text-align: center;
+    }
+    .splash-title span { color: var(--cyan); }
+    .splash-subtitle {
+      font-size: 0.9375rem;
+      color: var(--white-40);
+      text-align: center;
+      margin-top: -6px;
+      letter-spacing: 0.04em;
+    }
+
+    /* Cards grid */
+    .portal-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      max-width: 860px;
+      width: 100%;
+      margin-top: 40px;
+      animation: slideUp 0.5s ease 0.25s both;
+    }
+
+    .portal-card {
+      background: var(--blue-card);
+      border: 1px solid var(--blue-border);
+      border-radius: var(--radius-xl);
+      padding: 36px 28px 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+      text-decoration: none;
+      position: relative;
+      overflow: hidden;
+    }
+    .portal-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transition: opacity 0.3s;
+      border-radius: inherit;
+    }
+    .portal-card:hover {
+      transform: translateY(-6px);
+      box-shadow: var(--shadow-lg);
+    }
+    .portal-card.card-customer { border-color: rgba(0,212,255,0.25); }
+    .portal-card.card-customer::before { background: radial-gradient(ellipse at top, rgba(0,212,255,0.06) 0%, transparent 70%); }
+    .portal-card.card-customer:hover { border-color: var(--cyan); box-shadow: var(--shadow-cyan); }
+    .portal-card.card-driver   { border-color: rgba(34,197,94,0.25); }
+    .portal-card.card-driver::before { background: radial-gradient(ellipse at top, rgba(34,197,94,0.06) 0%, transparent 70%); }
+    .portal-card.card-driver:hover   { border-color: var(--success); box-shadow: 0 0 30px rgba(34,197,94,0.2); }
+    .portal-card.card-admin    { border-color: rgba(168,85,247,0.25); }
+    .portal-card.card-admin::before  { background: radial-gradient(ellipse at top, rgba(168,85,247,0.06) 0%, transparent 70%); }
+    .portal-card.card-admin:hover    { border-color: #A855F7; box-shadow: 0 0 30px rgba(168,85,247,0.2); }
+    .portal-card:hover::before { opacity: 1; }
+
+    .portal-icon {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 4px;
+    }
+    .portal-icon svg { width: 34px; height: 34px; }
+    .card-customer .portal-icon { background: rgba(0,212,255,0.12); color: var(--cyan); }
+    .card-driver   .portal-icon { background: rgba(34,197,94,0.12); color: var(--success); }
+    .card-admin    .portal-icon { background: rgba(168,85,247,0.12); color: #A855F7; }
+
+    .portal-card-title {
+      font-family: var(--font-head);
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--white-90);
+    }
+    .portal-card-desc {
+      font-size: 0.875rem;
+      color: var(--white-40);
+      line-height: 1.5;
+    }
+    .portal-card-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      padding: 9px 20px;
+      border-radius: 20px;
+      transition: var(--transition);
+      margin-top: 6px;
+    }
+    .card-customer .portal-card-cta { background: rgba(0,212,255,0.12); color: var(--cyan); }
+    .card-customer:hover .portal-card-cta { background: var(--cyan); color: var(--blue-deep); }
+    .card-driver   .portal-card-cta { background: rgba(34,197,94,0.12); color: var(--success); }
+    .card-driver:hover   .portal-card-cta { background: var(--success); color: var(--blue-deep); }
+    .card-admin    .portal-card-cta { background: rgba(168,85,247,0.12); color: #A855F7; }
+    .card-admin:hover    .portal-card-cta { background: #A855F7; color: #fff; }
+    .portal-card-cta svg { width: 14px; height: 14px; }
+
+    /* Demo credentials hint */
+    .demo-hint {
+      margin-top: 36px;
+      padding: 16px 24px;
+      background: var(--white-04);
+      border: 1px solid var(--blue-border);
+      border-radius: var(--radius-md);
+      font-size: 0.8125rem;
+      color: var(--white-40);
+      text-align: center;
+      animation: slideUp 0.5s ease 0.4s both;
+      max-width: 480px;
+    }
+    .demo-hint strong { color: var(--white-70); font-family: var(--font-mono); font-size: 0.75rem; }
+
+    /* Footer */
+    .splash-footer {
+      margin-top: 40px;
+      font-size: 0.8125rem;
+      color: var(--white-40);
+      text-align: center;
+      animation: fadeIn 0.5s ease 0.5s both;
+    }
+    .splash-footer a { color: var(--cyan-dim); }
+
+    /* Responsive */
+    @media (max-width: 720px) {
+      .portal-grid { grid-template-columns: 1fr; max-width: 380px; }
+      .splash-title { font-size: 1.75rem; }
+    }
+    @media (min-width: 721px) and (max-width: 900px) {
+      .portal-grid { grid-template-columns: repeat(2, 1fr); }
+      .portal-grid > *:last-child { grid-column: 1 / -1; max-width: 360px; margin: 0 auto; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="splash-bg"></div>
+<canvas id="particles-canvas" aria-hidden="true"></canvas>
+
+<div class="splash-wrap">
+
+  <div class="splash-brand">
+    <img src="logo.png" alt="Waterboy Delivery" class="splash-logo" onerror="this.style.display='none'" />
+    <div>
+      <h1 class="splash-title">Waterboy <span>Delivery</span></h1>
+      <p class="splash-subtitle">Platform Portal — Select your interface</p>
+    </div>
+  </div>
+
+  <div class="portal-grid">
+
+    <!-- Customer App -->
+    <a href="customer.html" class="portal-card card-customer">
+      <div class="portal-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+      </div>
+      <div>
+        <div class="portal-card-title">Customer App</div>
+        <p class="portal-card-desc">Order water, track deliveries, manage subscriptions & account.</p>
+      </div>
+      <div class="portal-card-cta">
+        Open App
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </div>
+    </a>
+
+    <!-- Driver App -->
+    <a href="driver.html" class="portal-card card-driver">
+      <div class="portal-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="1" y="3" width="15" height="13" rx="1"/>
+          <path d="M16 8h4l3 3v5h-7V8z"/>
+          <circle cx="5.5" cy="18.5" r="2.5"/>
+          <circle cx="18.5" cy="18.5" r="2.5"/>
+        </svg>
+      </div>
+      <div>
+        <div class="portal-card-title">Driver App</div>
+        <p class="portal-card-desc">View route, manage deliveries, track bottle pickups & schedule.</p>
+      </div>
+      <div class="portal-card-cta">
+        Open App
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </div>
+    </a>
+
+    <!-- Admin Dashboard -->
+    <a href="admin.html" class="portal-card card-admin">
+      <div class="portal-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="3" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="14" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/>
+        </svg>
+      </div>
+      <div>
+        <div class="portal-card-title">Admin Dashboard</div>
+        <p class="portal-card-desc">Full control: orders, drivers, inventory, promos, zones & reports.</p>
+      </div>
+      <div class="portal-card-cta">
+        Open App
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </div>
+    </a>
+
+  </div>
+
+  <div class="demo-hint">
+    Demo credentials — Customer: <strong>demo@waterboy.com / water2026</strong> &nbsp;·&nbsp;
+    Driver: <strong>driver@waterboy.com / drive2026</strong> &nbsp;·&nbsp;
+    Admin: <strong>admin@waterboy.com / admin2026</strong>
+  </div>
+
+  <p class="splash-footer">
+    &copy; 2026 <a href="https://waterboydelivery.com" target="_blank">Waterboy Delivery</a> &nbsp;·&nbsp; Elk Grove, CA &nbsp;·&nbsp; All data is demo only
+  </p>
+
+</div>
+
+<script src="js/global.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('service-worker.js')
+      .then(reg => console.log('[SW] Registered:', reg.scope))
+      .catch(err => console.warn('[SW] Registration failed:', err));
+  });
+}
+</script>
+<script>
+(function () {
+  /* Particles */
+  const canvas = document.getElementById('particles-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const COUNT = window.innerWidth < 768 ? 6 : 14;
+  let particles = [];
+
+  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+
+  function mkP(top) {
+    const sz = Math.random() * 4 + 2;
+    return {
+      x: Math.random() * canvas.width,
+      y: top ? -20 : Math.random() * canvas.height,
+      sz, speedY: Math.random() * 0.5 + 0.2,
+      speedX: (Math.random() - 0.5) * 0.12,
+      op: Math.random() * 0.12 + 0.04,
+      sw: Math.random() * Math.PI * 2,
+      ss: Math.random() * 0.016 + 0.006,
+      sa: Math.random() * 0.3 + 0.1,
+    };
+  }
+
+  function drawDrop(x, y, s, op) {
+    ctx.save();
+    ctx.globalAlpha = op;
+    const g = ctx.createRadialGradient(x, y - s * 0.2, s * 0.1, x, y, s * 1.4);
+    g.addColorStop(0, 'rgba(100,230,255,0.9)');
+    g.addColorStop(1, 'rgba(0,140,200,0.2)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(x, y - s * 1.6);
+    ctx.bezierCurveTo(x + s * 1.1, y - s * 0.4, x + s * 1.1, y + s * 0.6, x, y + s * 0.8);
+    ctx.bezierCurveTo(x - s * 1.1, y + s * 0.6, x - s * 1.1, y - s * 0.4, x, y - s * 1.6);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function tick() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach((p, i) => {
+      p.sw += p.ss; p.x += Math.sin(p.sw) * p.sa + p.speedX; p.y += p.speedY;
+      if (p.y > canvas.height + 20) particles[i] = mkP(true);
+      drawDrop(p.x, p.y, p.sz, p.op);
+    });
+    requestAnimationFrame(tick);
+  }
+
+  resize();
+  for (let i = 0; i < COUNT; i++) particles.push(mkP(false));
+  tick();
+  window.addEventListener('resize', () => { resize(); }, { passive: true });
+})();
+</script>
+</body>
+</html>

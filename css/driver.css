@@ -1,0 +1,363 @@
+/* ============================================================
+   WATERBOY APP — DRIVER APP STYLES
+   ============================================================ */
+
+/* ── Driver App Shell ───────────────────────────────────────── */
+.driver-app {
+  min-height: 100vh;
+  background: var(--blue-deep);
+  display: flex;
+  flex-direction: column;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+/* ── Driver Header ──────────────────────────────────────────── */
+.drv-header {
+  position: sticky;
+  top: 0; z-index: 100;
+  background: rgba(10,22,40,0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--blue-border);
+  padding: 0 20px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.drv-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.drv-status-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 8px rgba(34,197,94,0.6);
+  animation: pulse 2s ease-in-out infinite;
+}
+.drv-status-dot.off { background: var(--white-40); box-shadow: none; animation: none; }
+.drv-header-name {
+  font-family: var(--font-head);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--white-90);
+}
+.drv-header-role { font-size: 0.75rem; color: var(--white-40); }
+.drv-toggle-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--white-70);
+}
+
+/* ── Driver Pages ───────────────────────────────────────────── */
+.drv-main {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: calc(68px + env(safe-area-inset-bottom));
+}
+.drv-page { display: none; }
+.drv-page.active { display: block; animation: fadeIn 0.2s ease; }
+
+/* ── Bottom Nav (Driver) ─────────────────────────────────────── */
+.drv-bottom-nav {
+  position: fixed;
+  bottom: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  background: rgba(13,31,60,0.96);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid var(--blue-border);
+  z-index: 100;
+  display: flex;
+  padding: 0 8px calc(env(safe-area-inset-bottom) + 4px);
+  height: 64px;
+  align-items: stretch;
+}
+
+/* ── Stats Strip ────────────────────────────────────────────── */
+.drv-stats-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--blue-border);
+  border-bottom: 1px solid var(--blue-border);
+}
+.drv-stat-cell {
+  background: var(--blue-mid);
+  padding: 14px 16px;
+  text-align: center;
+}
+.drv-stat-val {
+  font-family: var(--font-head);
+  font-size: 1.375rem;
+  font-weight: 800;
+  color: var(--cyan);
+}
+.drv-stat-lbl { font-size: 0.6875rem; color: var(--white-40); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+
+/* ── Route Overview ─────────────────────────────────────────── */
+.route-header {
+  padding: 16px 20px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.route-title { font-family: var(--font-head); font-size: 1.125rem; font-weight: 700; }
+.route-summary { font-size: 0.8125rem; color: var(--white-40); }
+.route-sort-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: var(--white-08);
+  border: 1px solid var(--blue-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  color: var(--white-70);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.route-sort-btn svg { width: 14px; height: 14px; }
+
+/* Delivery stop card */
+.stop-list { padding: 0 20px; display: flex; flex-direction: column; gap: 10px; }
+.stop-card {
+  background: var(--blue-card);
+  border: 1px solid var(--blue-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  cursor: pointer;
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+.stop-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  border-radius: 4px 0 0 4px;
+}
+.stop-card.priority-high::before  { background: var(--danger); }
+.stop-card.priority-med::before   { background: var(--warning); }
+.stop-card.priority-normal::before{ background: var(--cyan); }
+.stop-card.stop-completed { opacity: 0.6; }
+.stop-card:hover:not(.stop-completed) { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.stop-card-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
+.stop-number {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: var(--cyan);
+  color: var(--blue-deep);
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono);
+}
+.stop-completed .stop-number { background: var(--success); }
+.stop-customer-name { font-size: 0.9375rem; font-weight: 700; color: var(--white-90); flex: 1; margin-left: 10px; }
+.stop-address { font-size: 0.8125rem; color: var(--white-40); margin-bottom: 12px; display: flex; align-items: flex-start; gap: 5px; }
+.stop-address svg { width: 13px; height: 13px; flex-shrink: 0; margin-top: 2px; }
+.stop-meta { display: flex; align-items: center; justify-content: space-between; }
+.stop-items { font-size: 0.8125rem; font-weight: 600; color: var(--white-70); }
+.stop-bottles-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: rgba(0,212,255,0.1);
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--cyan);
+}
+.stop-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--blue-border);
+}
+
+/* ── Delivery Modal (detail) ─────────────────────────────────── */
+.delivery-detail-addr {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--white-04);
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+}
+.delivery-detail-addr svg { width: 18px; height: 18px; color: var(--cyan); flex-shrink: 0; margin-top: 1px; }
+.delivery-map-placeholder {
+  height: 160px;
+  background: linear-gradient(135deg, rgba(0,212,255,0.05) 0%, var(--blue-frost) 100%);
+  border: 1px solid var(--blue-border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--white-40);
+  font-size: 0.875rem;
+  margin-bottom: 16px;
+}
+.delivery-map-placeholder svg { width: 32px; height: 32px; color: var(--cyan-dim); }
+.bottle-return-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--blue-border);
+}
+.bottle-return-label { font-size: 0.875rem; color: var(--white-70); }
+
+/* ── Schedule Tab ────────────────────────────────────────────── */
+.schedule-day-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 16px 20px 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.schedule-day-tabs::-webkit-scrollbar { display: none; }
+.day-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 14px;
+  background: var(--blue-card);
+  border: 1px solid var(--blue-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+  flex-shrink: 0;
+}
+.day-tab.active {
+  background: var(--cyan-soft);
+  border-color: var(--cyan-dim);
+}
+.day-tab-name { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--white-40); }
+.day-tab-num  { font-family: var(--font-mono); font-size: 1rem; font-weight: 700; color: var(--white-90); }
+.day-tab-count { font-size: 0.6875rem; color: var(--white-40); }
+.day-tab.active .day-tab-name,
+.day-tab.active .day-tab-count { color: var(--cyan-dim); }
+.day-tab.active .day-tab-num   { color: var(--cyan); }
+
+.schedule-time-slots { padding: 0 20px; }
+.time-slot {
+  display: flex;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--blue-border);
+}
+.time-slot-time {
+  width: 56px;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--white-40);
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+.time-slot-card {
+  flex: 1;
+  background: var(--blue-card);
+  border: 1px solid var(--blue-border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+}
+.time-slot-name    { font-size: 0.875rem; font-weight: 600; }
+.time-slot-address { font-size: 0.8125rem; color: var(--white-40); margin-top: 2px; }
+.time-slot-items   { font-size: 0.8125rem; color: var(--cyan); margin-top: 6px; }
+
+/* ── Earnings Tab ────────────────────────────────────────────── */
+.earnings-hero {
+  margin: 20px;
+  background: linear-gradient(135deg, rgba(34,197,94,0.1) 0%, var(--blue-card) 100%);
+  border: 1px solid rgba(34,197,94,0.25);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  text-align: center;
+}
+.earnings-period { font-size: 0.8125rem; color: var(--white-40); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em; }
+.earnings-total {
+  font-family: var(--font-head);
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--success);
+  font-family: var(--font-mono);
+}
+.earnings-sub { font-size: 0.875rem; color: var(--white-40); margin-top: 6px; }
+.earnings-breakdown {
+  margin: 0 20px;
+  background: var(--blue-card);
+  border: 1px solid var(--blue-border);
+  border-radius: var(--radius-md);
+}
+.earnings-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--blue-border);
+}
+.earnings-row:last-child { border-bottom: none; }
+.earnings-row-label { font-size: 0.875rem; color: var(--white-70); }
+.earnings-row-val   { font-family: var(--font-mono); font-size: 0.875rem; font-weight: 700; color: var(--white-90); }
+
+/* ── Profile Tab ─────────────────────────────────────────────── */
+.drv-profile-hero {
+  padding: 28px 20px 24px;
+  text-align: center;
+  border-bottom: 1px solid var(--blue-border);
+}
+.drv-avatar {
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #16A34A, var(--success));
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-head);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 auto 14px;
+  box-shadow: 0 0 24px rgba(34,197,94,0.3);
+}
+.drv-profile-name { font-family: var(--font-head); font-size: 1.25rem; font-weight: 700; }
+.drv-profile-zone { font-size: 0.875rem; color: var(--white-40); margin-top: 4px; }
+.drv-rating-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+.drv-stars { color: var(--warning); font-size: 1rem; letter-spacing: 1px; }
+.drv-rating-val { font-family: var(--font-mono); font-size: 0.9375rem; font-weight: 700; }
+.drv-vehicle-card {
+  margin: 20px;
+  background: var(--blue-card);
+  border: 1px solid var(--blue-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+.drv-vehicle-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--blue-border);
+}
+.drv-vehicle-row:last-child { border-bottom: none; }
+.drv-vehicle-label { color: var(--white-40); }
+.drv-vehicle-val   { font-weight: 600; }
