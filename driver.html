@@ -99,6 +99,48 @@
       <div style="height:80px"></div>
     </div>
 
+    <!-- MAP PAGE -->
+    <div id="drv-page-map" class="drv-page">
+      <div class="route-header">
+        <div>
+          <div class="route-title">Today's Route Map</div>
+          <div class="route-summary">Your assigned deliveries</div>
+        </div>
+      </div>
+      <!-- Map Embed -->
+      <div style="padding:0 16px 16px">
+        <iframe
+          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d25204.9!2d-121.3760!3d38.4088!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x809ad6a8f1a6c5b1%3A0x5b3b3b3b3b3b3b3b!2s7119+Elk+Grove+Blvd%2C+Elk+Grove%2C+CA+95758!5e0!3m2!1sen!2sus!4v1"
+          width="100%" height="280" style="border:0;border-radius:var(--radius-md);filter:grayscale(0.2) brightness(0.85);" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade">
+        </iframe>
+      </div>
+      <!-- Legend -->
+      <div style="padding:0 16px 16px;display:flex;gap:10px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:6px;padding:8px 12px;background:var(--blue-card);border:1px solid var(--blue-border);border-radius:var(--radius-sm);font-size:.8125rem;color:var(--white-70)">
+          <div style="width:10px;height:10px;border-radius:50%;background:#22C55E"></div> Completed
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;padding:8px 12px;background:var(--blue-card);border:1px solid var(--blue-border);border-radius:var(--radius-sm);font-size:.8125rem;color:var(--white-70)">
+          <div style="width:10px;height:10px;border-radius:50%;background:var(--cyan);animation:pulse 1.5s ease-in-out infinite"></div> Next Stop
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;padding:8px 12px;background:var(--blue-card);border:1px solid var(--blue-border);border-radius:var(--radius-sm);font-size:.8125rem;color:var(--white-70)">
+          <div style="width:10px;height:10px;border-radius:50%;background:#EAB308"></div> Remaining
+        </div>
+      </div>
+      <!-- Navigate Button -->
+      <div style="padding:0 16px 16px">
+        <a id="drv-navigate-btn" href="https://maps.google.com/?q=7119+Elk+Grove+Blvd,+Elk+Grove,+CA+95758" target="_blank"
+           class="btn btn-full btn-lg"
+           style="background:var(--success);color:#fff;display:flex;align-items:center;justify-content:center;gap:10px;text-decoration:none">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+          Navigate to Next Stop
+        </a>
+      </div>
+      <!-- Today's Stop List -->
+      <div style="padding:0 16px;font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--white-40);margin-bottom:10px">Today's Stops</div>
+      <div id="drv-map-stop-list" style="padding:0 16px;display:flex;flex-direction:column;gap:8px"></div>
+      <div style="height:80px"></div>
+    </div>
+
     <!-- SCHEDULE PAGE -->
     <div id="drv-page-schedule" class="drv-page">
       <div id="schedule-day-tabs" class="schedule-day-tabs"></div>
@@ -153,6 +195,10 @@
     <div class="nav-tab active drv-nav-tab" data-page="route">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
       <span class="nav-tab-label">Route</span>
+    </div>
+    <div class="nav-tab drv-nav-tab" data-page="map">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+      <span class="nav-tab-label">Map</span>
     </div>
     <div class="nav-tab drv-nav-tab" data-page="schedule">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>

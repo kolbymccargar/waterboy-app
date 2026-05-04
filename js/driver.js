@@ -119,7 +119,7 @@ function drvNavigateTo(page) {
   const pageEl = document.getElementById(`drv-page-${page}`);
   if (pageEl) pageEl.classList.add('active');
 
-  const renderers = { route: renderRoute, schedule: renderSchedule, earnings: renderEarnings, profile: renderProfile };
+  const renderers = { route: renderRoute, schedule: renderSchedule, earnings: renderEarnings, profile: renderProfile, map: renderDrvMap };
   if (renderers[page]) renderers[page]();
 }
 
@@ -412,4 +412,59 @@ function renderProfile() {
       showDrvLogin();
     });
   }
+}
+
+// ============================================================
+// MAP PAGE (Change 8)
+// ============================================================
+function renderDrvMap() {
+  const stops = Store.getList(WB.KEYS.orders).filter(o =>
+    o.status !== 'cancelled' && (!currentDriver || o.driverId === currentDriver?.id)
+  );
+
+  const demoStops = [
+    { name:'Maria Torres',   address:'5842 Laguna Blvd',      status:'delivered',        mapsQ:'5842+Laguna+Blvd,+Elk+Grove,+CA' },
+    { name:'James Nguyen',   address:'4210 Bruceville Rd',     status:'delivered',        mapsQ:'4210+Bruceville+Rd,+Elk+Grove,+CA' },
+    { name:'Rachel Patel',   address:'2345 Elk Hills Dr',      status:'out_for_delivery', mapsQ:'2345+Elk+Hills+Dr,+Elk+Grove,+CA' },
+    { name:'Brian Martinez', address:'3421 Whitelock Pkwy',    status:'confirmed',        mapsQ:'3421+Whitelock+Pkwy,+Elk+Grove,+CA' },
+    { name:'Jessica Wang',   address:'5589 Freeport Blvd',     status:'confirmed',        mapsQ:'5589+Freeport+Blvd,+Elk+Grove,+CA' },
+  ];
+
+  const nextStop = demoStops.find(s => s.status === 'out_for_delivery') || demoStops.find(s => s.status === 'confirmed');
+  const navBtn = document.getElementById('drv-navigate-btn');
+  if (navBtn && nextStop) {
+    navBtn.href = 'https://maps.google.com/?q=' + nextStop.mapsQ;
+    navBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg> Navigate to ${nextStop.name}`;
+  }
+
+  const listEl = document.getElementById('drv-map-stop-list');
+  if (!listEl) return;
+
+  const colorMap = {
+    delivered:        '#22C55E',
+    out_for_delivery: 'var(--cyan)',
+    confirmed:        '#EAB308',
+  };
+  const labelMap = {
+    delivered:        'Completed',
+    out_for_delivery: 'Next Stop',
+    confirmed:        'Remaining',
+  };
+
+  listEl.innerHTML = demoStops.map((stop, i) => {
+    const color = colorMap[stop.status] || '#EAB308';
+    const label = labelMap[stop.status] || 'Pending';
+    const pulse = stop.status === 'out_for_delivery' ? 'animation:pulse 1.5s ease-in-out infinite;' : '';
+    return `<div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--blue-card);border:1px solid var(--blue-border);border-radius:var(--radius-sm)">
+      <div style="width:28px;height:28px;border-radius:50%;background:rgba(10,22,40,0.6);border:2px solid ${color};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--font-mono);font-size:.75rem;font-weight:700;color:${color}">${i + 1}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:.875rem;font-weight:600;color:var(--white-90)">${stop.name}</div>
+        <div style="font-size:.75rem;color:var(--white-40);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${stop.address}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <div style="width:8px;height:8px;border-radius:50%;background:${color};${pulse}"></div>
+        <span style="font-size:.75rem;font-weight:600;color:${color}">${label}</span>
+      </div>
+    </div>`;
+  }).join('');
 }

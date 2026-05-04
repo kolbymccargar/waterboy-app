@@ -284,6 +284,70 @@
           </div>
         </div>
         <div id="route-stats-row" class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px"></div>
+
+        <!-- Delivery Map Section -->
+        <div class="chart-card" style="margin-bottom:20px">
+          <div class="chart-header">
+            <div class="chart-title">Delivery Map — Today's Routes</div>
+            <div style="font-size:.8125rem;color:var(--white-40)">Centered on 7119 Elk Grove Blvd, Elk Grove, CA</div>
+          </div>
+          <!-- Map Filter Buttons -->
+          <div style="display:flex;gap:8px;padding:0 20px 16px;flex-wrap:wrap">
+            <button class="filter-tab active" data-map-filter="all" onclick="filterDeliveryMap('all',this)">All</button>
+            <button class="filter-tab" data-map-filter="completed" onclick="filterDeliveryMap('completed',this)">Completed</button>
+            <button class="filter-tab" data-map-filter="in_progress" onclick="filterDeliveryMap('in_progress',this)">In Progress</button>
+            <button class="filter-tab" data-map-filter="pending" onclick="filterDeliveryMap('pending',this)">Pending</button>
+          </div>
+          <div style="display:flex;gap:20px;padding:0 20px 20px;flex-wrap:wrap">
+            <!-- Map Embed -->
+            <div style="flex:1;min-width:280px;position:relative">
+              <iframe
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d25204.9!2d-121.3760!3d38.4088!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x809ad6a8f1a6c5b1%3A0x5b3b3b3b3b3b3b3b!2s7119+Elk+Grove+Blvd%2C+Elk+Grove%2C+CA+95758!5e0!3m2!1sen!2sus!4v1"
+                width="100%" height="360" style="border:0;border-radius:var(--radius-md);filter:grayscale(0.3) contrast(1.1) brightness(0.9);" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade">
+              </iframe>
+            </div>
+            <!-- Legend & Stats -->
+            <div style="display:flex;flex-direction:column;gap:12px;min-width:180px">
+              <div style="background:var(--blue-card);border:1px solid var(--blue-border);border-radius:var(--radius-md);padding:16px">
+                <div style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--white-40);margin-bottom:12px">Status Legend</div>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <div style="width:12px;height:12px;border-radius:50%;background:#22C55E;box-shadow:0 0 6px rgba(34,197,94,0.5)"></div>
+                      <span style="font-size:.875rem;color:var(--white-70)">Completed</span>
+                    </div>
+                    <span id="admin-map-completed" style="font-family:var(--font-mono);font-weight:700;color:#22C55E">8</span>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <div style="width:12px;height:12px;border-radius:50%;background:var(--cyan);box-shadow:0 0 6px rgba(0,212,255,0.5)"></div>
+                      <span style="font-size:.875rem;color:var(--white-70)">In Progress</span>
+                    </div>
+                    <span id="admin-map-inprogress" style="font-family:var(--font-mono);font-weight:700;color:var(--cyan)">3</span>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <div style="width:12px;height:12px;border-radius:50%;background:#EAB308;box-shadow:0 0 6px rgba(234,179,8,0.5)"></div>
+                      <span style="font-size:.875rem;color:var(--white-70)">Pending</span>
+                    </div>
+                    <span id="admin-map-pending" style="font-family:var(--font-mono);font-weight:700;color:#EAB308">5</span>
+                  </div>
+                </div>
+              </div>
+              <div style="background:var(--blue-card);border:1px solid var(--blue-border);border-radius:var(--radius-md);padding:16px">
+                <div style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--white-40);margin-bottom:8px">Today's Total</div>
+                <div style="font-family:var(--font-head);font-size:1.75rem;font-weight:800;color:var(--white-90)">16</div>
+                <div style="font-size:.8125rem;color:var(--white-40)">deliveries</div>
+              </div>
+            </div>
+          </div>
+          <!-- Delivery List (filterable) -->
+          <div style="padding:0 20px 20px">
+            <div style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--white-40);margin-bottom:12px" id="admin-map-list-label">All Deliveries</div>
+            <div id="admin-delivery-map-list" style="display:flex;flex-direction:column;gap:8px"></div>
+          </div>
+        </div>
+
         <div id="routes-content" class="two-col-grid"></div>
       </div>
 

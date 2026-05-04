@@ -1297,6 +1297,77 @@ function renderReportsPage() {
   });
 }
 
+// ============================================================
+// DELIVERY MAP (Admin Routes)
+// ============================================================
+const DEMO_MAP_DELIVERIES = [
+  { id:'d1', customer:'Maria Torres',    address:'5842 Laguna Blvd, Elk Grove',  status:'completed',   driver:'Alex Rivera' },
+  { id:'d2', customer:'James Nguyen',    address:'4210 Bruceville Rd, Elk Grove', status:'completed',   driver:'Alex Rivera' },
+  { id:'d3', customer:'Priya Sharma',    address:'7001 Elk Grove Blvd #204',      status:'completed',   driver:'Sam Chen' },
+  { id:'d4', customer:'David Kim',       address:'9230 Laguna Springs Dr',        status:'completed',   driver:'Sam Chen' },
+  { id:'d5', customer:'Angela Reyes',    address:'3887 Windfield Way',            status:'completed',   driver:'Alex Rivera' },
+  { id:'d6', customer:'Tom Williams',    address:'8950 Auto Center Dr',           status:'completed',   driver:'Jordan Lee' },
+  { id:'d7', customer:'Sara Castro',     address:'6024 Lotz Pkwy',               status:'completed',   driver:'Jordan Lee' },
+  { id:'d8', customer:'Mike Johnson',    address:'4499 Mather Blvd',             status:'completed',   driver:'Sam Chen' },
+  { id:'d9', customer:'Rachel Patel',    address:'2345 Elk Hills Dr',            status:'in_progress', driver:'Alex Rivera' },
+  { id:'d10',customer:'Chris Lee',       address:'1100 Iron Point Rd',           status:'in_progress', driver:'Sam Chen' },
+  { id:'d11',customer:'Natalie Green',   address:'7832 Laguna Blvd',             status:'in_progress', driver:'Jordan Lee' },
+  { id:'d12',customer:'Brian Martinez',  address:'3421 Whitelock Pkwy',          status:'pending',     driver:'Alex Rivera' },
+  { id:'d13',customer:'Jessica Wang',    address:'5589 Freeport Blvd',           status:'pending',     driver:'Sam Chen' },
+  { id:'d14',customer:'Daniel Moore',    address:'8211 Calvine Rd',              status:'pending',     driver:'Jordan Lee' },
+  { id:'d15',customer:'Amy Chen',        address:'6750 Elk Grove Blvd',          status:'pending',     driver:'Alex Rivera' },
+  { id:'d16',customer:'Robert Davis',    address:'2890 Bradshaw Rd',             status:'pending',     driver:'Sam Chen' },
+];
+
+let currentMapFilter = 'all';
+
+function filterDeliveryMap(filter, btn) {
+  currentMapFilter = filter;
+  document.querySelectorAll('[data-map-filter]').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  const labelMap = { all:'All Deliveries', completed:'Completed', in_progress:'In Progress', pending:'Pending' };
+  const labelEl = document.getElementById('admin-map-list-label');
+  if (labelEl) labelEl.textContent = labelMap[filter] || 'All Deliveries';
+
+  renderAdminMapList();
+}
+window.filterDeliveryMap = filterDeliveryMap;
+
+function renderAdminMapList() {
+  const listEl = document.getElementById('admin-delivery-map-list');
+  if (!listEl) return;
+
+  const filtered = currentMapFilter === 'all'
+    ? DEMO_MAP_DELIVERIES
+    : DEMO_MAP_DELIVERIES.filter(d => d.status === currentMapFilter);
+
+  if (!filtered.length) {
+    listEl.innerHTML = '<div style="font-size:.875rem;color:var(--white-40);padding:12px 0">No deliveries for this filter.</div>';
+    return;
+  }
+
+  const colorMap = { completed: '#22C55E', in_progress: 'var(--cyan)', pending: '#EAB308' };
+  const labelMap = { completed: 'Completed', in_progress: 'In Progress', pending: 'Pending' };
+
+  listEl.innerHTML = filtered.map(d => `
+    <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--blue-card);border:1px solid var(--blue-border);border-radius:var(--radius-sm)">
+      <div style="width:10px;height:10px;border-radius:50%;background:${colorMap[d.status]};flex-shrink:0;box-shadow:0 0 6px ${colorMap[d.status]}80"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:.875rem;font-weight:600;color:var(--white-90)">${d.customer}</div>
+        <div style="font-size:.75rem;color:var(--white-40);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.address}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:.75rem;font-weight:600;color:${colorMap[d.status]}">${labelMap[d.status]}</div>
+        <div style="font-size:.6875rem;color:var(--white-40);margin-top:2px">${d.driver}</div>
+      </div>
+    </div>`).join('');
+}
+
+function initAdminMap() {
+  renderAdminMapList();
+}
+
 document.addEventListener('DOMContentLoaded', function () {
   document.querySelectorAll('#report-range-tabs .chart-period-tab').forEach(tab => {
     tab.addEventListener('click', function () {
@@ -1390,6 +1461,8 @@ function renderPagination(containerId, current, total, onPageChange) {
 let currentRouteDate = new Date().toISOString().slice(0,10);
 
 function renderRoutesPage() {
+  initAdminMap();
+
   const picker = document.getElementById('route-date-picker');
   if (picker && !picker.value) picker.value = currentRouteDate;
   if (picker) currentRouteDate = picker.value;

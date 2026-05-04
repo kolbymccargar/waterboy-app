@@ -86,6 +86,17 @@
 .cust-page { display: none; }
 .cust-page.active { display: block; animation: fadeIn 0.2s ease; }
 
+@keyframes slideFromRight {
+  from { transform: translateX(30%); opacity: 0; }
+  to   { transform: translateX(0);   opacity: 1; }
+}
+@keyframes slideFromLeft {
+  from { transform: translateX(-30%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+.cust-page.active.slide-from-right { animation: slideFromRight 0.25s ease; }
+.cust-page.active.slide-from-left  { animation: slideFromLeft  0.25s ease; }
+
 /* ── Bottom Navigation ──────────────────────────────────────── */
 .cust-bottom-nav {
   position: fixed;

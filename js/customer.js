@@ -1031,7 +1031,7 @@ function selectPlan(planId) {
   if (!currentCustomer) return;
   const planMap = {
     starter: { product: 'prod_1', freq: 'biweekly', qty: 2, desc: 'Starter (2 jugs bi-weekly)' },
-    popular: { product: 'prod_1', freq: 'weekly',   qty: 4, desc: 'Popular (4 jugs weekly)' },
+    popular: { product: 'prod_1', freq: 'weekly',   qty: 4, desc: 'Premium (4 jugs weekly)' },
     family:  { product: 'prod_1', freq: 'weekly',   qty: 6, desc: 'Family (6 jugs weekly)' },
   };
   const plan = planMap[planId];
@@ -1040,6 +1040,9 @@ function selectPlan(planId) {
     subscriptionActive: true,
     subscriptionProduct: plan.product,
     subscriptionFrequency: plan.freq,
+    subscriptionQty: plan.qty,
+    subscriptionDesc: plan.desc,
+    subscriptionPlanId: planId,
   });
   currentCustomer = Store.findById(WB.KEYS.customers, currentCustomer.id);
   Notifs.push(currentCustomer.id, 'subscription', 'Subscription Started!', `You\'re now on the ${plan.desc} plan.`);
@@ -1050,9 +1053,41 @@ function selectPlan(planId) {
 window.selectPlan = selectPlan;
 
 function pauseSubscription() {
-  Toast.info('Subscription Paused', 'Your deliveries have been paused until further notice.');
+  const modal = document.getElementById('pause-sub-modal');
+  if (!modal) return;
+  document.getElementById('pause-sub-form').style.display = 'block';
+  document.getElementById('pause-sub-success').style.display = 'none';
+  document.querySelectorAll('input[name="pause-reason"]').forEach(r => r.checked = false);
+  const durEl = document.getElementById('pause-duration');
+  if (durEl) durEl.value = '';
+  const notesEl = document.getElementById('pause-notes');
+  if (notesEl) notesEl.value = '';
+  Modal.open('pause-sub-modal');
 }
 window.pauseSubscription = pauseSubscription;
+
+function submitPauseSubscription() {
+  const reason = document.querySelector('input[name="pause-reason"]:checked')?.value;
+  const duration = document.getElementById('pause-duration')?.value;
+  if (!reason) { Toast.warning('Required', 'Please select a reason.'); return; }
+  if (!duration) { Toast.warning('Required', 'Please select a pause duration.'); return; }
+  const notes = document.getElementById('pause-notes')?.value?.trim() || '';
+  localStorage.setItem('wb_pause_reason', JSON.stringify({ reason, duration, notes, pausedAt: Date.now() }));
+  if (currentCustomer) {
+    currentCustomer.subscriptionActive = false;
+    Store.updateItem(WB.KEYS.customers, currentCustomer.id, { subscriptionActive: false });
+  }
+  document.getElementById('pause-sub-form').style.display = 'none';
+  document.getElementById('pause-sub-success').style.display = 'block';
+  renderSubscriptionCard();
+  renderSubPlanScreen();
+}
+window.submitPauseSubscription = submitPauseSubscription;
+
+function confirmPauseSubscription() {
+  Modal.close('pause-sub-modal');
+}
+window.confirmPauseSubscription = confirmPauseSubscription;
 
 function cancelSubscription() {
   if (!currentCustomer) return;
@@ -1665,7 +1700,7 @@ window.selectFrequency = selectFrequency;
 // MODALS INIT
 // ============================================================
 function initModals() {
-  ['pickup-modal','order-detail-modal','add-to-cart-modal','weather-modal','zone-modal','terms-modal','notif-permission-modal'].forEach(id => {
+  ['pickup-modal','order-detail-modal','add-to-cart-modal','weather-modal','zone-modal','terms-modal','notif-permission-modal','pause-sub-modal'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     el.addEventListener('click', e => { if (e.target === el) Modal.close(id); });
@@ -1714,3 +1749,163 @@ function timeAgo(ts) {
   if (day < 7)   return day + 'd ago';
   return fmtDate(ts);
 }
+
+// ============================================================
+// PLAN DETAIL VIEW (Change 5)
+// ============================================================
+const PLAN_DETAILS = {
+  starter: {
+    name: 'Starter', price: '~$13.98/mo', id: 'starter',
+    jugs: 2, freq: 'Bi-Weekly', deposit: '$4.00 deposit (refundable)',
+    extras: ['Free delivery on all orders', 'Bottle pickup scheduling', 'Account portal access'],
+    includes: '2 five-gallon jugs every 2 weeks',
+  },
+  popular: {
+    name: 'Premium', price: '~$27.96/mo', id: 'popular',
+    jugs: 4, freq: 'Weekly', deposit: '$8.00 deposit (refundable)',
+    extras: ['Free delivery on all orders', 'Priority delivery scheduling', 'Bottle pickup scheduling', 'Loyalty points x2', 'Account portal access'],
+    includes: '4 five-gallon jugs every week',
+  },
+  family: {
+    name: 'Family', price: '~$41.94/mo', id: 'family',
+    jugs: 6, freq: 'Weekly', deposit: '$12.00 deposit (refundable)',
+    extras: ['Free delivery on all orders', 'Priority delivery scheduling', 'Bottle pickup scheduling', 'Loyalty points x3', 'Account portal access', 'Dedicated account manager'],
+    includes: '6 five-gallon jugs every week',
+  },
+  business: {
+    name: 'Business', price: 'Custom pricing', id: 'business',
+    jugs: '8+', freq: 'Custom', deposit: 'Custom deposit',
+    extras: ['Custom delivery schedule', 'Bulk pricing discounts', 'Dedicated account manager', 'Priority support', 'Invoice billing available'],
+    includes: '8+ jugs on a custom schedule',
+  },
+};
+
+function openPlanDetail(planId) {
+  const plan = PLAN_DETAILS[planId];
+  if (!plan) return;
+  const screen = document.getElementById('plan-detail-screen');
+  const titleEl = document.getElementById('plan-detail-title');
+  const bodyEl = document.getElementById('plan-detail-body');
+  if (!screen || !bodyEl) return;
+
+  const currentSub = currentCustomer?.subscriptionDesc || '';
+  const isCurrent = !!(currentCustomer?.subscriptionActive && currentCustomer?.subscriptionPlanId === planId);
+  const currentPlanJugs = currentCustomer?.subscriptionQty || 0;
+  const jugDiff = plan.jugs !== '8+' ? plan.jugs - currentPlanJugs : null;
+
+  const comparisonHtml = currentCustomer?.subscriptionActive && !isCurrent && jugDiff !== null && jugDiff !== 0 && currentPlanJugs > 0
+    ? `<div style="margin-bottom:16px;padding:12px;background:rgba(0,212,255,0.06);border:1px solid var(--cyan-dim);border-radius:var(--radius-sm);font-size:.875rem;color:var(--cyan)">
+        ${jugDiff > 0 ? `You'd get <strong>${jugDiff} more jug${jugDiff>1?'s':''}</strong> per delivery compared to your current plan.`
+                      : `This plan has <strong>${Math.abs(jugDiff)} fewer jug${Math.abs(jugDiff)>1?'s':''}</strong> per delivery than your current plan.`}
+       </div>` : '';
+
+  const actionHtml = plan.id === 'business'
+    ? `<a href="tel:9166193218" class="btn btn-primary btn-full btn-lg" style="margin-top:20px;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px">
+         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.63A2 2 0 012 .18h3a2 2 0 012 1.72c.13.96.36 1.9.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.09-1.16a2 2 0 012.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0122 14.92z"/></svg>
+         Contact Us — (916) 619-3218
+       </a>`
+    : isCurrent
+    ? `<div style="margin-top:20px;padding:12px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:var(--radius-md);text-align:center">
+         <span class="badge badge-green" style="font-size:.875rem;padding:6px 16px">This is your current plan</span>
+       </div>`
+    : `<button class="btn btn-primary btn-full btn-lg" style="margin-top:20px" onclick="selectPlanFromDetail('${plan.id}')">
+         ${currentCustomer?.subscriptionActive ? 'Switch to ' + plan.name : 'Select ' + plan.name + ' Plan'}
+       </button>`;
+
+  if (titleEl) titleEl.textContent = plan.name + ' Plan';
+  bodyEl.innerHTML = `
+    <div style="padding-bottom:32px">
+      <div style="text-align:center;margin-bottom:24px">
+        <div style="font-family:var(--font-head);font-size:1.5rem;font-weight:800;color:var(--white-90)">${plan.name}</div>
+        <div style="font-family:var(--font-mono);font-size:1.75rem;font-weight:700;color:var(--cyan);margin-top:4px">${plan.price}</div>
+        <div style="font-size:.875rem;color:var(--white-40);margin-top:4px">${plan.includes}</div>
+      </div>
+      ${comparisonHtml}
+      <div style="background:var(--blue-card);border:1px solid var(--blue-border);border-radius:var(--radius-md);padding:16px;margin-bottom:16px">
+        <div style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--white-40);margin-bottom:12px">What's Included</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;gap:10px;align-items:center;font-size:.875rem;color:var(--white-70)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2.5" style="width:16px;height:16px;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg>
+            <span><strong style="color:var(--white-90)">${plan.jugs} five-gallon jugs</strong> per delivery</span>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;font-size:.875rem;color:var(--white-70)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2.5" style="width:16px;height:16px;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg>
+            <span><strong style="color:var(--white-90)">${plan.freq}</strong> delivery schedule</span>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;font-size:.875rem;color:var(--white-70)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2.5" style="width:16px;height:16px;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg>
+            <span>${plan.deposit}</span>
+          </div>
+          ${plan.extras.map(e => `<div style="display:flex;gap:10px;align-items:center;font-size:.875rem;color:var(--white-70)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2.5" style="width:16px;height:16px;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg><span>${e}</span></div>`).join('')}
+        </div>
+      </div>
+      ${actionHtml}
+    </div>`;
+  screen.classList.add('open');
+}
+window.openPlanDetail = openPlanDetail;
+
+function closePlanDetail() {
+  const screen = document.getElementById('plan-detail-screen');
+  if (screen) screen.classList.remove('open');
+}
+window.closePlanDetail = closePlanDetail;
+
+function selectPlanFromDetail(planId) {
+  selectPlan(planId);
+  closePlanDetail();
+  Toast.success('Plan Selected', 'Your plan has been updated.');
+}
+window.selectPlanFromDetail = selectPlanFromDetail;
+
+// ============================================================
+// SWIPEABLE TABS (Change 2)
+// ============================================================
+(function initSwipeTabs() {
+  const PAGES = ['home', 'products', 'cart', 'orders', 'bottles', 'account'];
+  let startX = 0, startY = 0;
+
+  function onTouchStart(e) {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  }
+
+  function onTouchEnd(e) {
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
+    if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx) * 0.8) return;
+
+    const idx = PAGES.indexOf(currentPage);
+    if (idx === -1) return;
+
+    let nextPage;
+    let dir;
+    if (dx < 0) {
+      nextPage = PAGES[(idx + 1) % PAGES.length];
+      dir = 'right';
+    } else {
+      nextPage = PAGES[(idx - 1 + PAGES.length) % PAGES.length];
+      dir = 'left';
+    }
+
+    document.querySelectorAll('.cust-page').forEach(p => {
+      p.classList.remove('slide-from-left', 'slide-from-right');
+    });
+
+    navigateTo(nextPage);
+
+    const pageEl = document.getElementById('page-' + nextPage);
+    if (pageEl) {
+      pageEl.classList.add('slide-from-' + dir);
+      setTimeout(() => pageEl.classList.remove('slide-from-left', 'slide-from-right'), 300);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const main = document.querySelector('.cust-main');
+    if (main) {
+      main.addEventListener('touchstart', onTouchStart, { passive: true });
+      main.addEventListener('touchend', onTouchEnd, { passive: true });
+    }
+  });
+}());
