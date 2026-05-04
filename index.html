@@ -7,10 +7,25 @@
   <meta name="description" content="Waterboy Delivery management platform. Customer ordering, driver dispatch, and admin dashboard." />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#00D4FF" />
+
+  <!-- Favicon -->
+  <link rel="icon" href="favicon.ico" sizes="any" />
+  <link rel="icon" href="Drop.PNG" type="image/png" />
+
+  <!-- Apple -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Waterboy" />
-  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+
+  <!-- OG / Social -->
+  <meta property="og:title" content="Waterboy Delivery" />
+  <meta property="og:description" content="Pure water delivered to your door. Order, track, and manage your water deliveries." />
+  <meta property="og:image" content="og-image.png" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="og-image.png" />
+
   <link rel="stylesheet" href="css/global.css" />
   <style>
     /* ── Splash Page Specific ─────────────────────────────── */
@@ -49,17 +64,70 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 14px;
+      gap: 18px;
       margin-bottom: 14px;
       animation: slideDown 0.6s ease 0.1s both;
     }
+
+    /* Frost glow container */
+    .splash-logo-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 130px;
+      height: 130px;
+    }
+    /* Layered frost glow rings */
+    .splash-logo-wrap::before,
+    .splash-logo-wrap::after {
+      content: '';
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .splash-logo-wrap::before {
+      inset: -18px;
+      background: radial-gradient(ellipse at center,
+        rgba(0,212,255,0.18) 0%,
+        rgba(0,212,255,0.07) 40%,
+        transparent 70%);
+      animation: glowPulse 3s ease-in-out infinite;
+    }
+    .splash-logo-wrap::after {
+      inset: -4px;
+      background: radial-gradient(ellipse at center,
+        rgba(80,200,255,0.12) 0%,
+        transparent 60%);
+      filter: blur(8px);
+    }
+    .splash-logo-frost {
+      position: absolute;
+      inset: -28px;
+      border-radius: 50%;
+      background: radial-gradient(ellipse at center,
+        rgba(0,212,255,0.08) 0%,
+        transparent 65%);
+      filter: blur(16px);
+      pointer-events: none;
+    }
+
     .splash-logo {
-      width: 72px;
-      height: 72px;
+      width: 120px;
+      height: 120px;
       object-fit: contain;
-      filter: drop-shadow(0 0 20px rgba(0,212,255,0.4));
+      position: relative;
+      z-index: 1;
+      filter: drop-shadow(0 0 24px rgba(0,180,255,0.55))
+              drop-shadow(0 0 8px rgba(0,212,255,0.3));
       animation: dropFloat 4s ease-in-out infinite;
     }
+
+    @keyframes glowPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.65; transform: scale(1.06); }
+    }
+
     .splash-title {
       font-family: var(--font-head);
       font-size: 2.2rem;
@@ -199,6 +267,8 @@
     @media (max-width: 720px) {
       .portal-grid { grid-template-columns: 1fr; max-width: 380px; }
       .splash-title { font-size: 1.75rem; }
+      .splash-logo { width: 96px; height: 96px; }
+      .splash-logo-wrap { width: 110px; height: 110px; }
     }
     @media (min-width: 721px) and (max-width: 900px) {
       .portal-grid { grid-template-columns: repeat(2, 1fr); }
@@ -214,7 +284,10 @@
 <div class="splash-wrap">
 
   <div class="splash-brand">
-    <img src="logo.png" alt="Waterboy Delivery" class="splash-logo" onerror="this.style.display='none'" />
+    <div class="splash-logo-wrap">
+      <div class="splash-logo-frost"></div>
+      <img src="Drop.PNG" alt="Waterboy Delivery" class="splash-logo" />
+    </div>
     <div>
       <h1 class="splash-title">Waterboy <span>Delivery</span></h1>
       <p class="splash-subtitle">Platform Portal — Select your interface</p>

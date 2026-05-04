@@ -21,7 +21,8 @@ const WB = {
     currentUser:  'wb_current_user',
     cartKey:      'wb_cart',
     pickups:      'wb_pickups',
-    seeded:       'wb_seeded_v4',
+    blockedDates: 'wb_blocked_dates',
+    seeded:       'wb_seeded_v5',
   },
   CREDS: {
     customer: { email: 'demo@waterboy.com',   password: 'water2026' },
@@ -124,11 +125,12 @@ const SEED = {
   ],
 
   zones: [
-    { id:'zone_1', name:'Elk Grove Central',  city:'Elk Grove', zipCodes:['95624','95758'], active:true,  deliveryDays:[1,2,3,4,5,6] },
-    { id:'zone_2', name:'Elk Grove South',    city:'Elk Grove', zipCodes:['95757','95759'], active:true,  deliveryDays:[1,2,3,4,5,6] },
-    { id:'zone_3', name:'Elk Grove North',    city:'Elk Grove', zipCodes:['95624','95626'], active:true,  deliveryDays:[1,3,5] },
-    { id:'zone_4', name:'Laguna',             city:'Elk Grove', zipCodes:['95758'], active:true,          deliveryDays:[2,4,6] },
-    { id:'zone_5', name:'Rancho Cordova',     city:'Rancho Cordova', zipCodes:['95670','95742'], active:false, deliveryDays:[1,2,3,4,5] },
+    { id:'zone_primary', name:'Elk Grove — Primary', city:'Elk Grove', zipCodes:['95624','95757','95758','95759'], active:true, deliveryFee:0, radius:10, center:'7119 Elk Grove Blvd, Elk Grove, CA', deliveryDays:[1,2,3,4,5,6] },
+    { id:'zone_1', name:'Elk Grove Central',  city:'Elk Grove', zipCodes:['95624','95758'], active:true,  deliveryFee:299, deliveryDays:[1,2,3,4,5,6] },
+    { id:'zone_2', name:'Elk Grove South',    city:'Elk Grove', zipCodes:['95757','95759'], active:true,  deliveryFee:299, deliveryDays:[1,2,3,4,5,6] },
+    { id:'zone_3', name:'Elk Grove North',    city:'Elk Grove', zipCodes:['95624','95626'], active:true,  deliveryFee:299, deliveryDays:[1,3,5] },
+    { id:'zone_4', name:'Laguna',             city:'Elk Grove', zipCodes:['95758'], active:true,          deliveryFee:299, deliveryDays:[2,4,6] },
+    { id:'zone_5', name:'Rancho Cordova',     city:'Rancho Cordova', zipCodes:['95670','95742'], active:false, deliveryFee:499, deliveryDays:[1,2,3,4,5] },
   ],
 
   drivers: [
@@ -345,6 +347,16 @@ function seedData() {
   Store.set(WB.KEYS.inventory,  SEED.inventory);
   Store.set(WB.KEYS.settings,   SEED.settings);
   Store.set(WB.KEYS.pickups,    []);
+
+  // Pre-block all Sundays for the next 6 months
+  const blockedSundays = [];
+  const sun = new Date(); sun.setHours(0,0,0,0);
+  while (sun.getDay() !== 0) sun.setDate(sun.getDate() + 1);
+  for (let i = 0; i < 27; i++) {
+    blockedSundays.push(sun.toISOString().slice(0,10));
+    sun.setDate(sun.getDate() + 7);
+  }
+  Store.set(WB.KEYS.blockedDates, blockedSundays);
   Store.set(WB.KEYS.seeded,     true);
 }
 

@@ -555,3 +555,143 @@ html, body { height: 100%; }
   .admin-content { padding: 16px; }
   .three-col-grid { grid-template-columns: 1fr; }
 }
+
+/* ── Filter Tabs ─────────────────────────────────────────────── */
+.filter-tab {
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  background: var(--white-08);
+  border: 1px solid var(--blue-border);
+  color: var(--white-40);
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+.filter-tab:hover { background: var(--white-15); color: var(--white-70); }
+.filter-tab.active { background: var(--cyan-soft); border-color: var(--cyan-dim); color: var(--cyan); }
+
+/* ── Route Stops ─────────────────────────────────────────────── */
+.route-stop {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--blue-border);
+}
+.route-stop:last-child { border-bottom: none; }
+.route-stop-num {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--white-08);
+  border: 1px solid var(--blue-border);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.75rem; font-weight: 700;
+  color: var(--white-70);
+  cursor: default;
+}
+.route-stop-num input[type="number"] { width: 28px; }
+.route-stop-num input[type="number"]::-webkit-inner-spin-button,
+.route-stop-num input[type="number"]::-webkit-outer-spin-button { opacity: 0; }
+
+/* ── Service Area Map ────────────────────────────────────────── */
+.service-map-wrap { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 20px; padding: 20px 0; }
+.service-map {
+  position: relative;
+  width: 280px; height: 280px;
+  display: flex; align-items: center; justify-content: center;
+}
+.service-map-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(0,212,255,0.25);
+  background: transparent;
+  pointer-events: none;
+}
+.service-map-ring.ring-outer { width: 280px; height: 280px; background: radial-gradient(ellipse, rgba(0,212,255,0.05) 0%, transparent 70%); }
+.service-map-ring.ring-mid { width: 180px; height: 180px; border-color: rgba(0,212,255,0.15); }
+.service-map-center-dot {
+  position: absolute;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: #A855F7;
+  box-shadow: 0 0 14px rgba(168,85,247,0.6);
+  z-index: 2;
+}
+.service-map-label-center {
+  position: absolute;
+  top: calc(50% + 14px);
+  left: 50%; transform: translateX(-50%);
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: rgba(168,85,247,0.9);
+  text-align: center;
+  white-space: nowrap;
+  z-index: 2;
+}
+.service-map-dot {
+  position: absolute;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 8px rgba(0,212,255,0.5);
+  z-index: 2;
+}
+.service-map-dot.dot-south { background: var(--success); box-shadow: 0 0 8px rgba(34,197,94,0.5); }
+.service-map-dot.dot-north { background: var(--warning); box-shadow: 0 0 8px rgba(245,158,11,0.5); }
+.service-map-dot.dot-laguna { background: #A855F7; box-shadow: 0 0 8px rgba(168,85,247,0.5); }
+.service-map-dot.dot-inactive { background: var(--white-40); box-shadow: none; }
+.service-map-legend { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+.map-legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--white-40); }
+.map-legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* ── Block Calendar ──────────────────────────────────────────── */
+.block-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.block-cal-header {
+  text-align: center;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--white-40);
+  padding: 4px 0;
+}
+.block-cal-day {
+  aspect-ratio: 1;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border: 1px solid transparent;
+  transition: var(--transition);
+}
+.block-cal-day.empty { background: none; border: none; }
+.block-cal-day.available {
+  background: var(--white-04);
+  border-color: var(--blue-border);
+  color: var(--white-70);
+  cursor: pointer;
+}
+.block-cal-day.available:hover { border-color: var(--cyan-dim); background: var(--cyan-soft); }
+.block-cal-day.blocked {
+  background: rgba(239,68,68,0.15);
+  border-color: rgba(239,68,68,0.4);
+  color: var(--danger);
+  cursor: pointer;
+  font-weight: 700;
+}
+.block-cal-day.blocked:hover { background: rgba(239,68,68,0.25); }
+.block-cal-day.sunday {
+  background: rgba(239,68,68,0.06);
+  border-color: rgba(239,68,68,0.2);
+  color: rgba(239,68,68,0.5);
+  cursor: default;
+}
+.block-cal-day.past { opacity: 0.35; cursor: default !important; }
+
+/* ── Refund / Security badges ────────────────────────────────── */
+.badge-blue { background: rgba(59,130,246,0.15); color: #60A5FA; border: 1px solid rgba(59,130,246,0.3); }
