@@ -135,9 +135,10 @@ function adminNavigateTo(page) {
 
   const titleMap = {
     overview: 'Dashboard Overview', orders: 'Orders', customers: 'Customers',
-    products: 'Products', routes: 'Route Management', drivers: 'Drivers',
+    products: 'Products', routes: 'Route Management', drivers: 'Employees',
     inventory: 'Inventory', payments: 'Payments & Billing', promos: 'Promotions',
     zones: 'Delivery Zones', reports: 'Reports & Analytics', settings: 'Settings',
+    schedule: 'Employee Schedule',
   };
   const titleEl = document.getElementById('topbar-page-title');
   if (titleEl) titleEl.textContent = titleMap[page] || page;
@@ -147,6 +148,7 @@ function adminNavigateTo(page) {
     products: renderProductsPage, drivers: renderDriversPage, inventory: renderInventoryPage,
     promos: renderPromosPage, zones: renderZonesPage, reports: renderReportsPage,
     settings: renderSettingsPage, routes: renderRoutesPage, payments: renderPaymentsPage,
+    schedule: renderSchedulePage,
   };
   if (renderers[page]) renderers[page]();
 }
@@ -730,43 +732,53 @@ function toggleProductActive(productId) {
 window.toggleProductActive = toggleProductActive;
 
 // ============================================================
-// DRIVERS PAGE
+// EMPLOYEES (DRIVERS) PAGE
 // ============================================================
+function empStatusBadge(status) {
+  if (status === 'active' || status === 'on_duty') return 'badge-green';
+  if (status === 'on_leave') return 'badge-yellow';
+  return 'badge-ghost';
+}
+function empStatusLabel(status) {
+  if (status === 'active' || status === 'on_duty') return 'On Duty';
+  if (status === 'on_leave') return 'On Leave';
+  return 'Off Duty';
+}
+
 function renderDriversPage() {
   const drivers = Store.getList(WB.KEYS.drivers);
   const grid = document.getElementById('drivers-grid');
   if (!grid) return;
 
   grid.innerHTML = drivers.map(d => {
-    const zone = Store.findById(WB.KEYS.zones, d.zone);
-    const activeOrders = Orders.getForDriver(d.id).length;
-    const driverOrders = Orders.getAll().filter(o => o.driverId === d.id && o.status === 'delivered');
-    const weekRevenue  = driverOrders.filter(o => o.createdAt >= daysAgo(7)).reduce((s,o) => s+o.total, 0);
+    const todayStops     = Orders.getForDriver(d.id).length;
+    const allDelivered   = Orders.getAll().filter(o => o.driverId === d.id && o.status === 'delivered');
+    const completionRate = d.deliveriesTotal ? Math.min(100, Math.round((allDelivered.length / d.deliveriesTotal) * 100)) : 0;
+    const statusBadge    = empStatusBadge(d.status);
+    const statusLbl      = empStatusLabel(d.status);
     return `<div class="driver-card" onclick="openDriverDetailModal('${d.id}')" style="cursor:pointer">
       <div class="driver-card-head">
         <div class="driver-card-avatar">${d.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
-        <div>
+        <div style="flex:1;min-width:0">
           <div class="driver-card-name">${d.name}</div>
-          <div class="driver-card-zone">${zone?.name || d.zone}</div>
+          <div class="driver-card-zone" style="font-size:.75rem;color:var(--white-40)">${d.phone || '—'}</div>
         </div>
-        <span class="badge ${d.status === 'active' ? 'badge-green' : 'badge-ghost'}" style="margin-left:auto">${d.status === 'active' ? 'Active' : 'Off Duty'}</span>
+        <span class="badge ${statusBadge}" style="margin-left:auto;flex-shrink:0">${statusLbl}</span>
       </div>
       <div class="driver-stats-row">
-        <div class="driver-stat-mini"><div class="driver-stat-mini-val">${activeOrders}</div><div class="driver-stat-mini-lbl">Active</div></div>
-        <div class="driver-stat-mini"><div class="driver-stat-mini-val">${d.deliveriesToday}</div><div class="driver-stat-mini-lbl">Today</div></div>
+        <div class="driver-stat-mini"><div class="driver-stat-mini-val">${todayStops}</div><div class="driver-stat-mini-lbl">Today's Stops</div></div>
         <div class="driver-stat-mini"><div class="driver-stat-mini-val">${d.deliveriesTotal}</div><div class="driver-stat-mini-lbl">Total</div></div>
-        <div class="driver-stat-mini"><div class="driver-stat-mini-val" style="color:var(--warning)">${d.rating}</div><div class="driver-stat-mini-lbl">Rating</div></div>
+        <div class="driver-stat-mini"><div class="driver-stat-mini-val" style="color:var(--success)">${completionRate}%</div><div class="driver-stat-mini-lbl">Completion</div></div>
       </div>
-      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--blue-border);display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:.8125rem;color:var(--white-40)">${d.vehicle} · ${d.plate}</span>
-        <span style="font-size:.8125rem;color:var(--cyan);font-weight:600">${fmtMoney(weekRevenue)} / 7d</span>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:12px" onclick="event.stopPropagation()">
+      <div style="display:flex;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--blue-border)" onclick="event.stopPropagation()">
         <button class="btn btn-sm btn-secondary" style="flex:1" onclick="openDriverDetailModal('${d.id}')">View Details</button>
-        <button class="btn btn-sm ${d.status==='active'?'btn-danger':'btn-secondary'}" onclick="toggleDriverStatus('${d.id}')">${d.status==='active'?'Deactivate':'Activate'}</button>
+        <button class="btn btn-sm btn-danger" onclick="deactivateEmployee('${d.id}')">Deactivate</button>
       </div>
     </div>`;
   }).join('');
+  if (!drivers.length) {
+    grid.innerHTML = '<div class="card" style="text-align:center;padding:40px;color:var(--white-40)">No employees found. Add one to get started.</div>';
+  }
 }
 
 function openDriverDetailModal(drvId) {
@@ -775,62 +787,82 @@ function openDriverDetailModal(drvId) {
   const body = document.getElementById('driver-detail-body');
   if (!body) return;
 
-  const allOrders = Orders.getAll().filter(o => o.driverId === drvId && o.status === 'delivered');
-  const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  const weekBreakdown = DAY_LABELS.map((label, i) => {
-    const dayOrders = allOrders.filter(o => {
-      const d = new Date(o.createdAt); return d.getDay() === (i + 1) % 7;
-    });
-    return { label, count: dayOrders.length, revenue: dayOrders.reduce((s,o) => s+o.total, 0) };
-  });
-  const maxCount = Math.max(...weekBreakdown.map(d => d.count), 1);
-
-  const zone = Store.findById(WB.KEYS.zones, d.zone);
-  const completionRate = allOrders.length ? Math.min(100, Math.round((allOrders.length / Math.max(d.deliveriesTotal, 1)) * 100)) : 0;
-  const avgRating = allOrders.filter(o => o.rating).reduce((s,o) => s+o.rating, 0) / (allOrders.filter(o => o.rating).length || 1);
+  const allDelivered   = Orders.getAll().filter(o => o.driverId === drvId && o.status === 'delivered');
+  const todayRoute     = Orders.getForDriver(drvId);
+  const completionRate = d.deliveriesTotal ? Math.min(100, Math.round((allDelivered.length / d.deliveriesTotal) * 100)) : 0;
+  const hireDate       = d.hireDate ? new Date(d.hireDate).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) : (d.joinedAt ? fmtDate(d.joinedAt) : '—');
+  const empId          = d.employeeId || d.id.slice(-8).toUpperCase();
+  const statusLbl      = empStatusLabel(d.status);
+  const statusBadge    = empStatusBadge(d.status);
 
   body.innerHTML = `
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--blue-border)">
       <div style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,#16A34A,var(--success));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.25rem;color:#fff">${d.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
-      <div>
+      <div style="flex:1;min-width:0">
         <div style="font-size:1.125rem;font-weight:700">${d.name}</div>
-        <div style="font-size:.875rem;color:var(--white-40)">${d.email} · ${d.phone}</div>
-        <div style="font-size:.875rem;color:var(--white-40)">${d.vehicle} · ${d.plate} · ${zone?.name || d.zone}</div>
+        <div style="font-size:.875rem;color:var(--white-40)">${d.email || '—'} · ${d.phone || '—'}</div>
+        <div style="font-size:.8125rem;color:var(--cyan);font-family:var(--font-mono);margin-top:3px">ID: ${empId} · Hired ${hireDate}</div>
       </div>
-      <span class="badge ${d.status==='active'?'badge-green':'badge-ghost'}" style="margin-left:auto">${d.status==='active'?'Active':'Off Duty'}</span>
+      <span class="badge ${statusBadge}">${statusLbl}</span>
     </div>
-    <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+
+    <div style="margin-bottom:20px">
+      <div style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--white-40);margin-bottom:10px">Status</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-sm ${d.status==='active'||d.status==='on_duty'?'btn-primary':'btn-secondary'}" onclick="setEmpStatus('${drvId}','on_duty')">On Duty</button>
+        <button class="btn btn-sm ${d.status==='off_duty'?'btn-primary':'btn-secondary'}" onclick="setEmpStatus('${drvId}','off_duty')">Off Duty</button>
+        <button class="btn btn-sm ${d.status==='on_leave'?'btn-primary':'btn-secondary'}" onclick="setEmpStatus('${drvId}','on_leave')">On Leave</button>
+      </div>
+    </div>
+
+    <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
       <div class="stat-card accent-cyan" style="padding:14px"><div class="stat-value" style="font-size:1.5rem">${d.deliveriesTotal}</div><div class="stat-label">Total Deliveries</div></div>
       <div class="stat-card accent-green" style="padding:14px"><div class="stat-value" style="font-size:1.5rem">${d.deliveriesToday}</div><div class="stat-label">Today</div></div>
-      <div class="stat-card accent-yellow" style="padding:14px"><div class="stat-value" style="font-size:1.5rem">${avgRating.toFixed(1)}★</div><div class="stat-label">Avg Rating</div></div>
-      <div class="stat-card accent-purple" style="padding:14px"><div class="stat-value" style="font-size:1.5rem">${completionRate}%</div><div class="stat-label">On-time Rate</div></div>
+      <div class="stat-card accent-purple" style="padding:14px"><div class="stat-value" style="font-size:1.5rem">${completionRate}%</div><div class="stat-label">Completion Rate</div></div>
     </div>
-    <div style="font-weight:700;font-size:.875rem;margin-bottom:12px">Weekly Delivery Breakdown (Mon–Sat)</div>
-    <div style="display:flex;align-items:flex-end;gap:8px;height:100px;margin-bottom:6px">
-      ${weekBreakdown.map(day => {
-        const pct = Math.round((day.count / maxCount) * 100);
-        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%">
-          <div style="font-size:.6875rem;color:var(--cyan);font-weight:600">${day.count}</div>
-          <div style="flex:1;width:100%;display:flex;align-items:flex-end">
-            <div style="width:100%;height:${Math.max(pct,4)}%;background:linear-gradient(0deg,var(--cyan-dim),var(--cyan));border-radius:3px 3px 0 0;min-height:4px"></div>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>
-    <div style="display:flex;gap:8px">
-      ${weekBreakdown.map(d => `<div style="flex:1;text-align:center;font-size:.6875rem;color:var(--white-40)">${d.label}</div>`).join('')}
-    </div>`;
+
+    <div style="font-weight:700;font-size:.875rem;margin-bottom:10px">Today's Route (${todayRoute.length} stops)</div>
+    ${todayRoute.length ? todayRoute.map((o, i) => `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--blue-border)">
+        <div style="width:22px;height:22px;border-radius:50%;background:var(--blue-card);border:1px solid var(--blue-border);display:flex;align-items:center;justify-content:center;font-size:.6875rem;font-weight:700;color:var(--white-70)">${i+1}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.875rem;font-weight:600">${o.customerName}</div>
+          <div style="font-size:.75rem;color:var(--white-40);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${o.customerAddress}</div>
+        </div>
+        <span class="badge ${Orders.statusBadgeClass(o.status)}">${Orders.statusLabel(o.status)}</span>
+      </div>`).join('')
+    : '<div style="font-size:.875rem;color:var(--white-40);padding:12px 0">No stops assigned for today.</div>'}`;
 
   Modal.open('driver-detail-modal');
 }
 window.openDriverDetailModal = openDriverDetailModal;
+
+function setEmpStatus(drvId, status) {
+  const d = Store.findById(WB.KEYS.drivers, drvId);
+  if (!d) return;
+  Store.updateItem(WB.KEYS.drivers, drvId, { status });
+  Toast.success('Status Updated', `${d.name} is now ${empStatusLabel(status)}.`);
+  Modal.close('driver-detail-modal');
+  renderDriversPage();
+}
+window.setEmpStatus = setEmpStatus;
+
+function deactivateEmployee(drvId) {
+  const d = Store.findById(WB.KEYS.drivers, drvId);
+  if (!d) return;
+  if (!confirm(`Deactivate ${d.name}? They will no longer appear as available for route assignment.`)) return;
+  Store.updateItem(WB.KEYS.drivers, drvId, { status: 'off_duty', active: false });
+  Toast.warning('Deactivated', `${d.name} has been deactivated.`);
+  renderDriversPage();
+}
+window.deactivateEmployee = deactivateEmployee;
 
 function toggleDriverStatus(drvId) {
   const d = Store.findById(WB.KEYS.drivers, drvId);
   if (!d) return;
   const newStatus = d.status === 'active' ? 'off_duty' : 'active';
   Store.updateItem(WB.KEYS.drivers, drvId, { status: newStatus });
-  Toast.success('Updated', `${d.name} is now ${newStatus === 'active' ? 'active' : 'off duty'}.`);
+  Toast.success('Updated', `${d.name} is now ${empStatusLabel(newStatus)}.`);
   renderDriversPage();
 }
 window.toggleDriverStatus = toggleDriverStatus;
@@ -840,34 +872,38 @@ function openAddDriverModal() {
   const zoneSelect = document.getElementById('driver-modal-zone');
   if (zoneSelect) zoneSelect.innerHTML = zones.filter(z => z.active).map(z => `<option value="${z.id}">${z.name}</option>`).join('');
   ['driver-modal-id','driver-modal-name','driver-modal-phone','driver-modal-email',
-   'driver-modal-vehicle','driver-modal-plate','driver-modal-password'].forEach(id => {
+   'driver-modal-vehicle','driver-modal-plate','driver-modal-password','driver-modal-empid'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
-  document.getElementById('add-driver-modal-title').textContent = 'Add New Driver';
+  const hireDateEl = document.getElementById('driver-modal-hiredate');
+  if (hireDateEl) hireDateEl.value = new Date().toISOString().slice(0, 10);
+  document.getElementById('add-driver-modal-title').textContent = 'Add New Employee';
   Modal.open('add-driver-modal');
 }
 window.openAddDriverModal = openAddDriverModal;
 
 function saveDriver() {
-  const name     = document.getElementById('driver-modal-name')?.value.trim();
-  const phone    = document.getElementById('driver-modal-phone')?.value.trim();
-  const email    = document.getElementById('driver-modal-email')?.value.trim();
-  const vehicle  = document.getElementById('driver-modal-vehicle')?.value.trim();
-  const plate    = document.getElementById('driver-modal-plate')?.value.trim();
-  const zone     = document.getElementById('driver-modal-zone')?.value;
-  const password = document.getElementById('driver-modal-password')?.value.trim() || 'drive2026';
+  const name       = document.getElementById('driver-modal-name')?.value.trim();
+  const phone      = document.getElementById('driver-modal-phone')?.value.trim();
+  const email      = document.getElementById('driver-modal-email')?.value.trim();
+  const vehicle    = document.getElementById('driver-modal-vehicle')?.value.trim();
+  const plate      = document.getElementById('driver-modal-plate')?.value.trim();
+  const zone       = document.getElementById('driver-modal-zone')?.value;
+  const password   = document.getElementById('driver-modal-password')?.value.trim() || 'drive2026';
+  const employeeId = document.getElementById('driver-modal-empid')?.value.trim();
+  const hireDateRaw = document.getElementById('driver-modal-hiredate')?.value;
+  const hireDate   = hireDateRaw ? new Date(hireDateRaw).getTime() : Date.now();
 
   if (!name || !email) { Toast.warning('Required', 'Name and email are required.'); return; }
 
   const newDriver = {
     id: uid('drv_'), name, phone, email, vehicle, plate, zone,
-    password, status:'active', deliveriesToday:0, deliveriesTotal:0,
-    rating:5.0, joinedAt:Date.now(), avatar:null,
+    password, status: 'active', deliveriesToday: 0, deliveriesTotal: 0,
+    rating: 5.0, joinedAt: Date.now(), hireDate, employeeId: employeeId || null, avatar: null,
   };
   Store.push(WB.KEYS.drivers, newDriver);
-  console.log('[Admin] New driver created in localStorage:', newDriver);
   Modal.close('add-driver-modal');
-  Toast.success('Driver Added', `${name} added to the team.`);
+  Toast.success('Employee Added', `${name} added to the team.`);
   renderDriversPage();
 }
 window.saveDriver = saveDriver;
@@ -1320,6 +1356,7 @@ const DEMO_MAP_DELIVERIES = [
 ];
 
 let currentMapFilter = 'all';
+let currentDriverFilter = 'all';
 
 function filterDeliveryMap(filter, btn) {
   currentMapFilter = filter;
@@ -1334,13 +1371,25 @@ function filterDeliveryMap(filter, btn) {
 }
 window.filterDeliveryMap = filterDeliveryMap;
 
+function filterDeliveryMapDriver(driverName, btn) {
+  currentDriverFilter = driverName;
+  document.querySelectorAll('[data-driver-filter]').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderAdminMapList();
+}
+window.filterDeliveryMapDriver = filterDeliveryMapDriver;
+
 function renderAdminMapList() {
   const listEl = document.getElementById('admin-delivery-map-list');
   if (!listEl) return;
 
-  const filtered = currentMapFilter === 'all'
+  let filtered = currentMapFilter === 'all'
     ? DEMO_MAP_DELIVERIES
     : DEMO_MAP_DELIVERIES.filter(d => d.status === currentMapFilter);
+
+  if (currentDriverFilter !== 'all') {
+    filtered = filtered.filter(d => d.driver === currentDriverFilter);
+  }
 
   if (!filtered.length) {
     listEl.innerHTML = '<div style="font-size:.875rem;color:var(--white-40);padding:12px 0">No deliveries for this filter.</div>';
@@ -1847,6 +1896,82 @@ const _origRenderSettings = renderSettingsPage;
 function renderSettingsPage() {
   _origRenderSettings();
   renderBlockCalendar();
+}
+
+// ============================================================
+// SCHEDULE PAGE
+// ============================================================
+function renderSchedulePage() {
+  const wrap = document.getElementById('schedule-grid-wrap');
+  if (!wrap) return;
+
+  const drivers = Store.getList(WB.KEYS.drivers).filter(d => d.active !== false);
+  const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const today = new Date();
+  const todayDow = today.getDay(); // 0=Sun
+
+  // Build Mon-Sat dates for the current week
+  const weekDays = DAY_LABELS.map((label, i) => {
+    const d = new Date(today);
+    const offset = (i + 1) - todayDow;
+    d.setDate(today.getDate() + offset);
+    return { label, date: d, iso: d.toISOString().slice(0, 10) };
+  });
+
+  // Get orders per day: check driverId to find who's assigned
+  const allOrders = Orders.getAll().filter(o => !['cancelled'].includes(o.status));
+
+  // For each day, figure out which drivers have stops
+  const dayData = weekDays.map(day => {
+    const dayOrders = allOrders.filter(o => {
+      const od = new Date(o.createdAt);
+      return od.toDateString() === day.date.toDateString();
+    });
+    const driverIds = [...new Set(dayOrders.map(o => o.driverId).filter(Boolean))];
+    return { ...day, drivers: driverIds, total: dayOrders.length };
+  });
+
+  const driverColorMap = {};
+  const COLORS = ['var(--cyan)', '#A855F7', '#22C55E', '#EAB308', '#F97316'];
+  drivers.forEach((d, i) => { driverColorMap[d.id] = COLORS[i % COLORS.length]; });
+
+  wrap.innerHTML = `
+    <div class="chart-card" style="overflow-x:auto">
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;min-width:600px;padding:20px">
+        ${dayData.map(day => {
+          const isToday = day.iso === today.toISOString().slice(0, 10);
+          const hasDrivers = day.drivers.length > 0;
+          const assignedDrivers = day.drivers.map(id => drivers.find(d => d.id === id)).filter(Boolean);
+          return `<div style="background:${isToday ? 'rgba(0,212,255,0.07)' : 'var(--blue-card)'};border:1px solid ${isToday ? 'rgba(0,212,255,0.35)' : (hasDrivers ? 'var(--blue-border)' : 'rgba(239,68,68,0.3)')};border-radius:var(--radius-md);padding:14px;min-height:120px">
+            <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:${isToday?'var(--cyan)':'var(--white-40)'};margin-bottom:4px">${day.label}</div>
+            <div style="font-size:.6875rem;color:var(--white-40);margin-bottom:12px">${day.date.getMonth()+1}/${day.date.getDate()}</div>
+            ${hasDrivers
+              ? assignedDrivers.map(d => `
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+                  <div style="width:6px;height:6px;border-radius:50%;background:${driverColorMap[d.id]};flex-shrink:0"></div>
+                  <span style="font-size:.75rem;font-weight:600;color:var(--white-90);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.name.split(' ')[0]}</span>
+                </div>`).join('')
+              : `<div style="display:flex;align-items:center;gap:6px;margin-top:8px">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" style="width:12px;height:12px;flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  <span style="font-size:.75rem;color:var(--danger)">No driver</span>
+                </div>`}
+            <div style="margin-top:8px;font-size:.6875rem;color:var(--white-40)">${day.total} stop${day.total !== 1 ? 's' : ''}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <div class="chart-card" style="margin-top:20px">
+      <div class="chart-header"><div class="chart-title">Driver Legend</div></div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;padding:0 20px 20px">
+        ${drivers.map(d => `
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:10px;height:10px;border-radius:50%;background:${driverColorMap[d.id]}"></div>
+            <span style="font-size:.875rem;color:var(--white-70)">${d.name}</span>
+            <span class="badge ${empStatusBadge(d.status)}">${empStatusLabel(d.status)}</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
 }
 
 // ============================================================

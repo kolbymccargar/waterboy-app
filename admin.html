@@ -83,7 +83,11 @@
       </div>
       <div class="sidebar-nav-item" data-page="drivers">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-        <span class="nav-label">Drivers</span>
+        <span class="nav-label">Employees</span>
+      </div>
+      <div class="sidebar-nav-item" data-page="schedule">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span class="nav-label">Schedule</span>
       </div>
 
       <div class="sidebar-section-label">Business</div>
@@ -292,11 +296,18 @@
             <div style="font-size:.8125rem;color:var(--white-40)">Centered on 7119 Elk Grove Blvd, Elk Grove, CA</div>
           </div>
           <!-- Map Filter Buttons -->
-          <div style="display:flex;gap:8px;padding:0 20px 16px;flex-wrap:wrap">
+          <div style="display:flex;gap:8px;padding:0 20px 10px;flex-wrap:wrap">
             <button class="filter-tab active" data-map-filter="all" onclick="filterDeliveryMap('all',this)">All</button>
             <button class="filter-tab" data-map-filter="completed" onclick="filterDeliveryMap('completed',this)">Completed</button>
             <button class="filter-tab" data-map-filter="in_progress" onclick="filterDeliveryMap('in_progress',this)">In Progress</button>
             <button class="filter-tab" data-map-filter="pending" onclick="filterDeliveryMap('pending',this)">Pending</button>
+          </div>
+          <div style="display:flex;gap:8px;padding:0 20px 16px;flex-wrap:wrap;align-items:center">
+            <span style="font-size:.75rem;font-weight:600;color:var(--white-40);text-transform:uppercase;letter-spacing:.05em">Driver:</span>
+            <button class="filter-tab active" data-driver-filter="all" onclick="filterDeliveryMapDriver('all',this)">All</button>
+            <button class="filter-tab" data-driver-filter="Alex Rivera" onclick="filterDeliveryMapDriver('Alex Rivera',this)">Alex Rivera</button>
+            <button class="filter-tab" data-driver-filter="Sam Chen" onclick="filterDeliveryMapDriver('Sam Chen',this)">Sam Chen</button>
+            <button class="filter-tab" data-driver-filter="Jordan Lee" onclick="filterDeliveryMapDriver('Jordan Lee',this)">Jordan Lee</button>
           </div>
           <div style="display:flex;gap:20px;padding:0 20px 20px;flex-wrap:wrap">
             <!-- Map Embed -->
@@ -351,15 +362,23 @@
         <div id="routes-content" class="two-col-grid"></div>
       </div>
 
-      <!-- DRIVERS PAGE -->
+      <!-- EMPLOYEES PAGE -->
       <div id="admin-page-drivers" class="admin-page">
         <div class="page-header">
-          <div><div class="page-header-title">Drivers</div><div class="page-header-sub">Manage your delivery team</div></div>
+          <div><div class="page-header-title">Employees</div><div class="page-header-sub">Manage your delivery employees</div></div>
           <div class="page-header-actions">
-            <button class="btn btn-primary" onclick="openAddDriverModal()">+ Add Driver</button>
+            <button class="btn btn-primary" onclick="openAddDriverModal()">+ Add Employee</button>
           </div>
         </div>
         <div id="drivers-grid" class="three-col-grid"></div>
+      </div>
+
+      <!-- SCHEDULE PAGE -->
+      <div id="admin-page-schedule" class="admin-page">
+        <div class="page-header">
+          <div><div class="page-header-title">Employee Schedule</div><div class="page-header-sub">Weekly driver assignments — Mon through Sat</div></div>
+        </div>
+        <div id="schedule-grid-wrap"></div>
       </div>
 
       <!-- CUSTOMERS PAGE -->
@@ -819,11 +838,11 @@
   </div>
 </div>
 
-<!-- Add Driver Modal -->
+<!-- Add Employee Modal -->
 <div id="add-driver-modal" class="modal-overlay">
   <div class="modal" style="max-width:480px">
     <div class="modal-header">
-      <span class="modal-title" id="add-driver-modal-title">Add New Driver</span>
+      <span class="modal-title" id="add-driver-modal-title">Add New Employee</span>
       <button class="modal-close" data-close-modal><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body">
@@ -834,6 +853,10 @@
       </div>
       <div class="form-group"><label class="form-label">Email</label><input id="driver-modal-email" type="email" class="form-input" placeholder="driver@waterboy.com" /></div>
       <div class="two-col-grid" style="gap:12px;margin-bottom:14px">
+        <div class="form-group" style="margin:0"><label class="form-label">Employee ID</label><input id="driver-modal-empid" class="form-input" placeholder="e.g. EMP-001" /></div>
+        <div class="form-group" style="margin:0"><label class="form-label">Hire Date</label><input id="driver-modal-hiredate" type="date" class="form-input" /></div>
+      </div>
+      <div class="two-col-grid" style="gap:12px;margin-bottom:14px">
         <div class="form-group" style="margin:0"><label class="form-label">Vehicle</label><input id="driver-modal-vehicle" class="form-input" placeholder="Ram ProMaster 2500" /></div>
         <div class="form-group" style="margin:0"><label class="form-label">License Plate</label><input id="driver-modal-plate" class="form-input" placeholder="7WBY312" /></div>
       </div>
@@ -843,7 +866,7 @@
         </div>
         <div class="form-group" style="margin:0"><label class="form-label">Temp Password</label><input id="driver-modal-password" class="form-input" placeholder="drive2026" /></div>
       </div>
-      <button class="btn btn-primary btn-full" onclick="saveDriver()">Save Driver</button>
+      <button class="btn btn-primary btn-full" onclick="saveDriver()">Save Employee</button>
     </div>
   </div>
 </div>
@@ -852,7 +875,7 @@
 <div id="driver-detail-modal" class="modal-overlay">
   <div class="modal" style="max-width:600px">
     <div class="modal-header">
-      <span class="modal-title">Driver Performance</span>
+      <span class="modal-title">Employee Details</span>
       <button class="modal-close" data-close-modal><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body" id="driver-detail-body"></div>

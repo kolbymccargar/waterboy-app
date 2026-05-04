@@ -141,46 +141,44 @@
       <div style="height:80px"></div>
     </div>
 
-    <!-- SCHEDULE PAGE -->
-    <div id="drv-page-schedule" class="drv-page">
-      <div id="schedule-day-tabs" class="schedule-day-tabs"></div>
-      <div id="schedule-slots" class="schedule-time-slots"></div>
+    <!-- BOTTLES PAGE -->
+    <div id="drv-page-bottles" class="drv-page">
+      <div class="route-header">
+        <div>
+          <div class="route-title">Bottle Tracking</div>
+          <div class="route-summary" id="bottles-summary">Today's pickups &amp; drop-offs</div>
+        </div>
+      </div>
+      <div class="drv-stats-strip" style="margin:0 16px 16px;border-radius:var(--radius-md)">
+        <div class="drv-stat-cell">
+          <div class="drv-stat-val" id="btl-deliver">0</div>
+          <div class="drv-stat-lbl">To Deliver</div>
+        </div>
+        <div class="drv-stat-cell">
+          <div class="drv-stat-val" id="btl-pickup">0</div>
+          <div class="drv-stat-lbl">To Pick Up</div>
+        </div>
+        <div class="drv-stat-cell">
+          <div class="drv-stat-val" id="btl-returned" style="color:var(--success)">0</div>
+          <div class="drv-stat-lbl">Returned</div>
+        </div>
+      </div>
+      <div id="bottles-list" style="padding:0 16px;display:flex;flex-direction:column;gap:10px"></div>
       <div style="height:80px"></div>
     </div>
 
-    <!-- EARNINGS PAGE -->
-    <div id="drv-page-earnings" class="drv-page">
-      <div class="earnings-hero">
-        <div class="earnings-period">This Week's Earnings</div>
-        <div class="earnings-total" id="earnings-total">$0.00</div>
-        <div class="earnings-sub" id="earnings-stops-today" style="margin-top:8px">0 stops today</div>
-      </div>
-      <div style="margin:16px 20px 8px;font-size:.8125rem;font-weight:600;color:var(--white-40);text-transform:uppercase;letter-spacing:.06em">Breakdown</div>
-      <div class="earnings-breakdown">
-        <div class="earnings-row"><span class="earnings-row-label">Today's Deliveries</span><span class="earnings-row-val" id="earnings-today">$0.00</span></div>
-        <div class="earnings-row"><span class="earnings-row-label">Week Deliveries (<span id="earnings-week-stops">0</span>)</span><span class="earnings-row-val" id="earnings-base">$0.00</span></div>
-        <div class="earnings-row"><span class="earnings-row-label">Tips (est.)</span><span class="earnings-row-val" id="earnings-tips">$0.00</span></div>
-        <div class="earnings-row" style="font-weight:700"><span class="earnings-row-label">All-Time Earnings</span><span class="earnings-row-val" style="color:var(--success)" id="earnings-alltime">$0.00</span></div>
-      </div>
-      <div style="height:80px"></div>
-    </div>
-
-    <!-- PROFILE PAGE -->
-    <div id="drv-page-profile" class="drv-page">
+    <!-- ACCOUNT PAGE -->
+    <div id="drv-page-account" class="drv-page">
       <div class="drv-profile-hero">
         <div class="drv-avatar" id="drv-avatar-text">DM</div>
         <div class="drv-profile-name" id="drv-profile-name">Driver Name</div>
-        <div class="drv-profile-zone" id="drv-profile-zone">Zone</div>
-        <div class="drv-rating-row">
-          <span class="drv-stars">★★★★★</span>
-          <span class="drv-rating-val" id="drv-profile-rating">5.0</span>
-          <span style="font-size:.8125rem;color:var(--white-40)">· <span id="drv-total-deliveries">0</span> deliveries</span>
-        </div>
+        <div class="drv-profile-zone" id="drv-profile-role">Waterboy Driver</div>
       </div>
-      <div style="margin:20px 20px 8px;font-size:.8125rem;font-weight:600;color:var(--white-40);text-transform:uppercase;letter-spacing:.06em">Vehicle Info</div>
+      <div style="margin:0 20px 8px;font-size:.8125rem;font-weight:600;color:var(--white-40);text-transform:uppercase;letter-spacing:.06em">My Info</div>
       <div class="drv-vehicle-card">
-        <div class="drv-vehicle-row"><span class="drv-vehicle-label">Vehicle</span><span class="drv-vehicle-val" id="drv-vehicle-name">—</span></div>
-        <div class="drv-vehicle-row"><span class="drv-vehicle-label">Plate</span><span class="drv-vehicle-val" id="drv-vehicle-plate">—</span></div>
+        <div class="drv-vehicle-row"><span class="drv-vehicle-label">Email</span><span class="drv-vehicle-val" id="drv-acct-email">—</span></div>
+        <div class="drv-vehicle-row"><span class="drv-vehicle-label">Phone</span><span class="drv-vehicle-val" id="drv-acct-phone">—</span></div>
+        <div class="drv-vehicle-row"><span class="drv-vehicle-label">Employee ID</span><span class="drv-vehicle-val" id="drv-acct-empid" style="color:var(--cyan);font-family:var(--font-mono);font-size:.8125rem">—</span></div>
       </div>
       <div style="padding:0 20px">
         <button id="drv-logout-btn" class="btn btn-danger btn-full" style="margin-top:24px">Sign Out</button>
@@ -196,31 +194,27 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
       <span class="nav-tab-label">Route</span>
     </div>
+    <div class="nav-tab drv-nav-tab" data-page="bottles">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16.5 9.4l-9-5.19M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      <span class="nav-tab-label">Bottles</span>
+    </div>
     <div class="nav-tab drv-nav-tab" data-page="map">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
       <span class="nav-tab-label">Map</span>
     </div>
-    <div class="nav-tab drv-nav-tab" data-page="schedule">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      <span class="nav-tab-label">Schedule</span>
-    </div>
-    <div class="nav-tab drv-nav-tab" data-page="earnings">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
-      <span class="nav-tab-label">Earnings</span>
-    </div>
-    <div class="nav-tab drv-nav-tab" data-page="profile">
+    <div class="nav-tab drv-nav-tab" data-page="account">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      <span class="nav-tab-label">Profile</span>
+      <span class="nav-tab-label">Account</span>
     </div>
   </nav>
 
 </div>
 
-<!-- Stop Detail Modal -->
+<!-- Complete Delivery Modal -->
 <div id="stop-detail-modal" class="modal-overlay">
   <div class="modal" style="max-width:520px">
     <div class="modal-header">
-      <span class="modal-title">Delivery Details</span>
+      <span class="modal-title" id="stop-modal-title">Complete Delivery</span>
       <button class="modal-close" data-close-modal><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body" id="stop-detail-body"></div>

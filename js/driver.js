@@ -119,7 +119,7 @@ function drvNavigateTo(page) {
   const pageEl = document.getElementById(`drv-page-${page}`);
   if (pageEl) pageEl.classList.add('active');
 
-  const renderers = { route: renderRoute, schedule: renderSchedule, earnings: renderEarnings, profile: renderProfile, map: renderDrvMap };
+  const renderers = { route: renderRoute, bottles: renderBottles, map: renderDrvMap, account: renderAccount };
   if (renderers[page]) renderers[page]();
 }
 
@@ -146,15 +146,12 @@ function renderStatsStrip(orders) {
   setEl('drv-stat-bottles',    totalBottles);
 }
 
+const DEMO_TIME_WINDOWS = ['8:00–10:00 AM','9:00–11:00 AM','10:00 AM–12:00 PM','11:00 AM–1:00 PM','12:00–2:00 PM','1:00–3:00 PM','2:00–4:00 PM'];
+const DEMO_NOTES = ['','Gate code: #2241','Leave at door','Ring bell twice','','Call on arrival',''];
+
 function renderStopList(orders) {
   const list = document.getElementById('stop-list');
   if (!list) return;
-
-  const priorityClass = (status) => {
-    if (status === 'out_for_delivery') return 'priority-high';
-    if (status === 'preparing')        return 'priority-med';
-    return 'priority-normal';
-  };
 
   if (!orders.length) {
     list.innerHTML = `<div class="empty-state"><div class="empty-state-icon" style="background:rgba(34,197,94,0.12);color:var(--success)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="20 6 9 17 4 12"/></svg></div><div class="empty-state-title">All deliveries done!</div><div class="empty-state-sub">Great work today. Check back for new orders.</div></div>`;
@@ -162,30 +159,47 @@ function renderStopList(orders) {
   }
 
   list.innerHTML = orders.map((order, idx) => {
-    const bottles = order.items.reduce((s, i) => s + i.qty, 0);
-    const isOOD   = order.status === 'out_for_delivery';
+    const cust       = Store.findById(WB.KEYS.customers, order.customerId);
+    const bottles    = order.items.reduce((s, i) => s + i.qty, 0);
+    const pickupQty  = cust?.bottles || 0;
+    const mapsUrl    = `https://maps.google.com/?q=${encodeURIComponent(order.customerAddress)}`;
+    const timeWindow = DEMO_TIME_WINDOWS[idx % DEMO_TIME_WINDOWS.length];
+    const note       = DEMO_NOTES[idx % DEMO_NOTES.length];
+    const isDone     = order.status === 'delivered';
+    const isMissed   = order.status === 'missed' || order.status === 'cancelled';
+    const statusBadge = isDone ? 'badge-green' : isMissed ? 'badge-red' : 'badge-yellow';
+    const statusTxt   = isDone ? 'Completed' : isMissed ? 'Missed' : 'Pending';
+
     return `
-      <div class="stop-card ${priorityClass(order.status)}" onclick="openStopDetail('${order.id}')">
+      <div class="stop-card ${isDone ? 'priority-normal' : 'priority-high'}" style="${isDone ? 'opacity:.7' : ''}">
         <div class="stop-card-head">
           <div class="stop-number">${idx + 1}</div>
-          <div class="stop-customer-name">${order.customerName}</div>
-          <span class="badge ${Orders.statusBadgeClass(order.status)}">${Orders.statusLabel(order.status)}</span>
+          <div style="flex:1;min-width:0">
+            <div class="stop-customer-name">${order.customerName}</div>
+            <div style="font-size:.75rem;color:var(--white-40)">⏱ ${timeWindow}</div>
+          </div>
+          <span class="badge ${statusBadge}">${statusTxt}</span>
         </div>
-        <div class="stop-address">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-          ${order.customerAddress}
-        </div>
+        <a href="${mapsUrl}" target="_blank" class="stop-address" style="text-decoration:none;color:inherit;display:flex;align-items:flex-start;gap:6px;padding:8px 0;border-top:1px solid var(--blue-border)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0;margin-top:2px;stroke:var(--cyan)"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span style="font-size:.8125rem;color:var(--white-70)">${order.customerAddress}</span>
+        </a>
         <div class="stop-meta">
           <span class="stop-items">${order.items.map(i => `${i.qty}× ${i.productName}`).join(', ')}</span>
-          <span class="stop-bottles-badge">💧 ${bottles} btl</span>
+          <span class="stop-bottles-badge">💧 ${bottles} deliver · ⬆ ${pickupQty} return</span>
         </div>
+        ${note ? `<div style="font-size:.75rem;color:var(--warning);margin-top:6px;display:flex;align-items:center;gap:5px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>${note}</div>` : ''}
+        ${!isDone && !isMissed ? `
         <div class="stop-actions">
-          <button class="btn btn-secondary btn-sm flex-1" onclick="event.stopPropagation();callCustomer('${order.customerId}')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.08 1.23 2 2 0 012.06 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
-            Call
-          </button>
-          ${order.status !== 'out_for_delivery' ? `<button class="btn btn-primary btn-sm flex-1" onclick="event.stopPropagation();markOutForDelivery('${order.id}')">Out for Delivery</button>` : `<button class="btn btn-primary btn-sm flex-1" onclick="event.stopPropagation();markDelivered('${order.id}')">✓ Mark Delivered</button>`}
-        </div>
+          <a href="${mapsUrl}" target="_blank" class="btn btn-secondary btn-sm flex-1" style="text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>Navigate
+          </a>
+          <button class="btn btn-primary btn-sm flex-1" onclick="event.stopPropagation();openCompleteModal('${order.id}')">✓ Complete</button>
+          <button class="btn btn-sm" style="background:rgba(239,68,68,0.12);color:var(--danger);border:1px solid rgba(239,68,68,0.25)" onclick="event.stopPropagation();markMissed('${order.id}')">Missed</button>
+        </div>` : isDone ? `
+        <div style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:.8125rem;color:var(--success);font-weight:600">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><polyline points="20 6 9 17 4 12"/></svg>Delivery completed
+        </div>` : ''}
       </div>`;
   }).join('');
 }
@@ -287,121 +301,78 @@ function adjustReturn(delta) {
 window.adjustReturn = adjustReturn;
 
 // ============================================================
-// SCHEDULE PAGE
+// BOTTLES PAGE
 // ============================================================
-function renderSchedule() {
-  const tabsEl = document.getElementById('schedule-day-tabs');
-  if (!tabsEl) return;
+function renderBottles() {
+  if (!currentDriver) return;
+  const orders = Orders.getForDriver(currentDriver.id);
 
-  const days = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(); d.setDate(d.getDate() + i);
-    days.push(d);
-  }
+  const toDeliver = orders.reduce((s, o) => s + o.items.reduce((s2, i) => s2 + i.qty, 0), 0);
+  const toPickup  = orders.reduce((s, o) => {
+    const cust = Store.findById(WB.KEYS.customers, o.customerId);
+    return s + (cust?.bottles || 0);
+  }, 0);
+  const returned  = Store.getList(WB.KEYS.orders)
+    .filter(o => o.driverId === currentDriver.id && o.status === 'delivered')
+    .reduce((s, o) => {
+      const cust = Store.findById(WB.KEYS.customers, o.customerId);
+      return s + (cust?.bottles || 0);
+    }, 0);
 
-  tabsEl.innerHTML = days.map((d, i) => {
-    const orders = Store.getList(WB.KEYS.orders).filter(o => {
-      const od = new Date(o.createdAt);
-      return od.toDateString() === d.toDateString() && o.driverId === (currentDriver?.id);
-    });
-    return `<div class="day-tab ${i === 0 ? 'active' : ''}" onclick="switchScheduleDay(this, ${i})">
-      <span class="day-tab-name">${d.toLocaleDateString('en-US',{weekday:'short'})}</span>
-      <span class="day-tab-num">${d.getDate()}</span>
-      <span class="day-tab-count">${orders.length} stops</span>
-    </div>`;
-  }).join('');
+  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  setEl('btl-deliver',  toDeliver);
+  setEl('btl-pickup',   toPickup);
+  setEl('btl-returned', returned);
 
-  renderScheduleSlots(0, days);
-}
+  const listEl = document.getElementById('bottles-list');
+  if (!listEl) return;
 
-function switchScheduleDay(el, dayIdx) {
-  document.querySelectorAll('.day-tab').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
-  const days = [];
-  for (let i = 0; i < 7; i++) { const d = new Date(); d.setDate(d.getDate() + i); days.push(d); }
-  renderScheduleSlots(dayIdx, days);
-}
-window.switchScheduleDay = switchScheduleDay;
-
-function renderScheduleSlots(dayIdx, days) {
-  const slotsEl = document.getElementById('schedule-slots');
-  if (!slotsEl) return;
-
-  const d = days[dayIdx];
-  const allOrders = Store.getList(WB.KEYS.orders);
-  const dayOrders = dayIdx === 0
-    ? Orders.getForDriver(currentDriver?.id || '')
-    : allOrders.filter(o => {
-        const od = new Date(o.createdAt);
-        return od.toDateString() === d.toDateString() && o.driverId === currentDriver?.id;
-      });
-
-  if (!dayOrders.length) {
-    slotsEl.innerHTML = '<div class="empty-state" style="padding:40px 20px"><div class="empty-state-title">No deliveries scheduled</div></div>';
+  if (!orders.length) {
+    listEl.innerHTML = '<div class="empty-state" style="padding:32px 0"><div class="empty-state-title">No bottles to track</div><div class="empty-state-sub">All deliveries complete for today.</div></div>';
     return;
   }
 
-  const timeSlots = ['9:00 AM','10:00 AM','11:00 AM','12:00 PM','1:00 PM','2:00 PM','3:00 PM','4:00 PM','5:00 PM'];
-  slotsEl.innerHTML = dayOrders.map((order, i) => {
-    const timeStr = timeSlots[i % timeSlots.length];
-    return `<div class="time-slot">
-      <div class="time-slot-time">${timeStr}</div>
-      <div class="time-slot-card">
-        <div class="time-slot-name">${order.customerName}</div>
-        <div class="time-slot-address">${order.customerAddress}</div>
-        <div class="time-slot-items">${order.items.map(i => `${i.qty}× ${i.productName}`).join(', ')}</div>
+  listEl.innerHTML = orders.map((order, idx) => {
+    const cust    = Store.findById(WB.KEYS.customers, order.customerId);
+    const deliver = order.items.reduce((s, i) => s + i.qty, 0);
+    const pickup  = cust?.bottles || 0;
+    const isDone  = order.status === 'delivered';
+    return `<div style="background:var(--blue-card);border:1px solid var(--blue-border);border-radius:var(--radius-md);padding:14px 16px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div class="stop-number" style="width:24px;height:24px;font-size:.75rem">${idx + 1}</div>
+        <div style="font-weight:600;color:var(--white-90);font-size:.875rem">${order.customerName}</div>
+        ${isDone ? `<span class="badge badge-green" style="margin-left:auto">Done</span>` : `<span class="badge badge-yellow" style="margin-left:auto">Pending</span>`}
+      </div>
+      <div style="display:flex;gap:10px">
+        <div style="flex:1;background:rgba(0,212,255,0.07);border:1px solid rgba(0,212,255,0.15);border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:1.25rem;font-weight:800;color:var(--cyan)">${deliver}</div>
+          <div style="font-size:.6875rem;color:var(--white-40);margin-top:2px">Deliver</div>
+        </div>
+        <div style="flex:1;background:rgba(234,179,8,0.07);border:1px solid rgba(234,179,8,0.15);border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:1.25rem;font-weight:800;color:#EAB308">${pickup}</div>
+          <div style="font-size:.6875rem;color:var(--white-40);margin-top:2px">Pick Up</div>
+        </div>
       </div>
     </div>`;
   }).join('');
 }
 
 // ============================================================
-// EARNINGS PAGE
+// ACCOUNT PAGE
 // ============================================================
-function renderEarnings() {
-  if (!currentDriver) return;
-
-  const allOrders = Store.getList(WB.KEYS.orders).filter(o => o.driverId === currentDriver.id && o.status === 'delivered');
-  const midnight  = new Date(); midnight.setHours(0,0,0,0);
-  const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-
-  const todayOrders = allOrders.filter(o => o.updatedAt >= midnight.getTime());
-  const weekOrders  = allOrders.filter(o => o.updatedAt >= weekStart.getTime());
-
-  const basePerStop = 350; // $3.50 per stop
-  const tipRate     = 0.15;
-
-  const todayEarnings = todayOrders.length * basePerStop + Math.floor(todayOrders.reduce((s,o)=>s+o.total,0) * tipRate / 100);
-  const weekEarnings  = weekOrders.length  * basePerStop + Math.floor(weekOrders.reduce((s,o)=>s+o.total,0)  * tipRate / 100);
-  const totalEarnings = allOrders.length   * basePerStop + Math.floor(allOrders.reduce((s,o)=>s+o.total,0)   * tipRate / 100);
-
-  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-  setEl('earnings-total', fmtMoney(weekEarnings));
-  setEl('earnings-today', fmtMoney(todayEarnings));
-  setEl('earnings-stops-today', todayOrders.length);
-  setEl('earnings-week-stops', weekOrders.length);
-  setEl('earnings-base',       fmtMoney(weekOrders.length * basePerStop));
-  setEl('earnings-tips',       fmtMoney(weekEarnings - weekOrders.length * basePerStop));
-  setEl('earnings-alltime',    fmtMoney(totalEarnings));
-}
-
-// ============================================================
-// PROFILE PAGE
-// ============================================================
-function renderProfile() {
+function renderAccount() {
   if (!currentDriver) return;
   const d = currentDriver;
 
-  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   const avi = document.getElementById('drv-avatar-text');
-  if (avi) avi.textContent = d.name.split(' ').map(w=>w[0]).join('').slice(0,2);
+  if (avi) avi.textContent = d.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
-  setEl('drv-profile-name',    d.name);
-  setEl('drv-profile-zone',    'Zone: ' + (Store.findById(WB.KEYS.zones, d.zone)?.name || d.zone));
-  setEl('drv-profile-rating',  d.rating.toFixed(1));
-  setEl('drv-vehicle-name',    d.vehicle);
-  setEl('drv-vehicle-plate',   d.plate);
-  setEl('drv-total-deliveries',d.deliveriesTotal.toLocaleString());
+  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  setEl('drv-profile-name', d.name);
+  setEl('drv-profile-role', 'Waterboy Driver');
+  setEl('drv-acct-email',   d.email || '—');
+  setEl('drv-acct-phone',   d.phone || '—');
+  setEl('drv-acct-empid',   d.id);
 
   const logoutBtn = document.getElementById('drv-logout-btn');
   if (logoutBtn && !logoutBtn.dataset.init) {
@@ -413,6 +384,60 @@ function renderProfile() {
     });
   }
 }
+
+// ============================================================
+// MARK MISSED
+// ============================================================
+function markMissed(orderId) {
+  Orders.updateStatus(orderId, 'missed');
+  Toast.warning('Marked Missed', 'Order flagged as missed. Dispatch has been notified.');
+  renderRoute();
+}
+window.markMissed = markMissed;
+
+// ============================================================
+// COMPLETE DELIVERY MODAL
+// ============================================================
+function openCompleteModal(orderId) {
+  selectedStop = orderId;
+  const order = Orders.getById(orderId);
+  if (!order) return;
+
+  const titleEl = document.getElementById('stop-modal-title');
+  if (titleEl) titleEl.textContent = 'Complete Delivery';
+
+  const cust = Store.findById(WB.KEYS.customers, order.customerId);
+  const returnBottles = cust?.bottles || 0;
+  const body = document.getElementById('stop-detail-body');
+  if (!body) return;
+
+  body.innerHTML = `
+    <div class="delivery-detail-addr">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      <div>
+        <div style="font-weight:700;font-size:.9375rem">${order.customerName}</div>
+        <div style="color:var(--white-40);font-size:.875rem;margin-top:3px">${order.customerAddress}</div>
+        ${cust?.phone ? `<div style="color:var(--cyan);font-size:.8125rem;margin-top:4px">${cust.phone}</div>` : ''}
+      </div>
+    </div>
+    <div style="font-size:.875rem;font-weight:700;margin-bottom:10px">Items Delivered</div>
+    ${order.items.map(i => `<div class="bottle-return-row"><span class="bottle-return-label">${i.productName}</span><span class="fw-600">${i.qty} bottles</span></div>`).join('')}
+    <div class="bottle-return-row" style="border-top:1px solid var(--blue-border);margin-top:4px;padding-top:12px">
+      <span class="bottle-return-label" style="color:var(--warning)">⬆ Bottles Picked Up</span>
+      <div class="qty-stepper" style="scale:.9">
+        <button class="qty-btn" onclick="adjustReturn(-1)">−</button>
+        <span class="qty-val" id="return-qty">${returnBottles}</span>
+        <button class="qty-btn" onclick="adjustReturn(1)">+</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button class="btn btn-primary flex-1" onclick="markDelivered('${order.id}')">✓ Mark Complete</button>
+      <button class="btn btn-ghost" onclick="Modal.close('stop-detail-modal')">Cancel</button>
+    </div>`;
+
+  Modal.open('stop-detail-modal');
+}
+window.openCompleteModal = openCompleteModal;
 
 // ============================================================
 // MAP PAGE (Change 8)
