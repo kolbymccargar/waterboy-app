@@ -14,6 +14,8 @@ let currentOrdersTab = 'active';
 let currentProductFilter = 'all';
 let notifPanelOpen = false;
 let hydrationGlasses = 0;
+let recurringEnabled = false;
+let selectedFreq = 'weekly';
 const HYDRATION_GOAL = 8;
 
 // ============================================================
@@ -34,6 +36,7 @@ document.addEventListener('DOMContentLoaded', function () {
   initNotifPanel();
   initHydration();
   initBackToTop();
+  initRecurringToggle();
   loadCartBadge();
 });
 
@@ -115,7 +118,7 @@ function navigateTo(page) {
   const pageEl = document.getElementById(`page-${page}`);
   if (pageEl) pageEl.classList.add('active');
 
-  const titleMap = { home:'Home', products:'Products', cart:'Cart', orders:'Orders', account:'Account' };
+  const titleMap = { home:'Home', products:'Products', cart:'Cart', orders:'Orders', bottles:'My Bottles', account:'Account' };
   const headerTitle = document.getElementById('cust-page-title');
   if (headerTitle) headerTitle.textContent = titleMap[page] || '';
 
@@ -124,6 +127,7 @@ function navigateTo(page) {
     products: renderProducts,
     cart: renderCart,
     orders: renderOrders,
+    bottles: renderBottles,
     account: renderAccount,
   };
   if (renderers[page]) renderers[page]();
@@ -340,12 +344,15 @@ function renderCart() {
 
   const total = subtotal + delivery - discount;
 
+  const recurSect = document.getElementById('recurring-section');
   if (!items.length) {
     listEl.innerHTML = '';
     if (emptyEl) emptyEl.style.display = 'flex';
     if (summEl)  summEl.style.display = 'none';
+    if (recurSect) recurSect.style.display = 'none';
     return;
   }
+  if (recurSect) recurSect.style.display = 'block';
 
   if (emptyEl) emptyEl.style.display = 'none';
   if (summEl)  summEl.style.display = 'block';
@@ -431,12 +438,30 @@ function placeOrder() {
     const order = Orders.create(currentCustomer.id, items, promoCode);
     if (!order) { Toast.error('Error', 'Could not place order.'); if (btn) { btn.disabled = false; btn.textContent = 'Place Order'; } return; }
 
+    // Save recurring subscription if enabled
+    if (recurringEnabled) {
+      const customDays = selectedFreq === 'custom'
+        ? parseInt(document.getElementById('recurring-custom-days')?.value) || 7
+        : null;
+      const firstProduct = items[0]?.productId || null;
+      Store.updateItem(WB.KEYS.customers, currentCustomer.id, {
+        subscriptionActive: true,
+        subscriptionProduct: firstProduct,
+        subscriptionFrequency: selectedFreq,
+        subscriptionCustomDays: customDays,
+      });
+      Notifs.push(currentCustomer.id, 'subscription', 'Recurring Delivery Set!',
+        `Your ${selectedFreq} delivery has been scheduled.`);
+    }
+
     Cart.clear();
-    // Reload fresh customer data
     currentCustomer = Store.findById(WB.KEYS.customers, currentCustomer.id);
     Notifs.push(currentCustomer.id, 'order_update', 'Order Received!', 'Your order has been placed and is pending confirmation.', order.id);
 
-    Toast.success('Order Placed!', 'We\'ll confirm your order shortly.');
+    const msg = recurringEnabled
+      ? 'Order placed & recurring delivery scheduled!'
+      : 'We\'ll confirm your order shortly.';
+    Toast.success('Order Placed!', msg);
     if (btn) { btn.disabled = false; btn.textContent = 'Place Order'; }
     loadCartBadge();
     navigateTo('orders');
@@ -677,6 +702,125 @@ function timeAgo(ts) {
   if (day < 7)   return day + 'd ago';
   return fmtDate(ts);
 }
+
+// ============================================================
+// RECURRING DELIVERY
+// ============================================================
+function initRecurringToggle() {
+  const toggle = document.getElementById('recurring-toggle');
+  if (!toggle) return;
+  toggle.addEventListener('click', function () {
+    recurringEnabled = !recurringEnabled;
+    this.classList.toggle('on', recurringEnabled);
+    const opts = document.getElementById('recurring-options');
+    if (opts) opts.style.display = recurringEnabled ? 'block' : 'none';
+  });
+}
+
+function selectFrequency(btn, freq) {
+  selectedFreq = freq;
+  document.querySelectorAll('#recurring-options button[data-freq]').forEach(b => {
+    b.className = b === btn ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-secondary';
+  });
+  const customWrap = document.getElementById('custom-days-wrap');
+  if (customWrap) customWrap.style.display = freq === 'custom' ? 'block' : 'none';
+}
+window.selectFrequency = selectFrequency;
+
+// ============================================================
+// BOTTLES PAGE
+// ============================================================
+function renderBottles() {
+  if (!currentCustomer) return;
+
+  const countEl = document.getElementById('bottles-count');
+  if (countEl) countEl.textContent = currentCustomer.bottles || 0;
+
+  const listEl = document.getElementById('pickups-list');
+  if (!listEl) return;
+
+  const pickups = Store.getList(WB.KEYS.pickups)
+    .filter(p => p.customerId === currentCustomer.id)
+    .sort((a, b) => a.date - b.date);
+
+  if (!pickups.length) {
+    listEl.innerHTML = `<div class="empty-state" style="margin-top:8px">
+      <div class="empty-state-title">No pickups scheduled</div>
+      <div class="empty-state-sub">Schedule a pickup to return empty bottles.</div>
+    </div>`;
+    return;
+  }
+
+  listEl.innerHTML = pickups.map(p => {
+    const dateStr = new Date(p.date).toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+    const isPast = p.date < Date.now();
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--white-04);border:1px solid var(--blue-border);border-radius:var(--radius-md);margin-bottom:10px">
+      <div>
+        <div style="font-weight:600;font-size:.9375rem">${dateStr}</div>
+        <div style="font-size:.8125rem;color:var(--white-40);margin-top:2px">${p.count} bottle${p.count > 1 ? 's' : ''} · ${p.notes || 'No notes'}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="badge ${isPast ? 'badge-ghost' : 'badge-cyan'}">${isPast ? 'Past' : 'Upcoming'}</span>
+        ${!isPast ? `<button class="btn-icon" onclick="cancelPickup('${p.id}')" title="Cancel" style="color:var(--danger)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:16px;height:16px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openPickupModal() {
+  const dateInput = document.getElementById('pickup-date');
+  if (dateInput) {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    dateInput.min = tomorrow.toISOString().split('T')[0];
+    dateInput.value = tomorrow.toISOString().split('T')[0];
+  }
+  const countInput = document.getElementById('pickup-count');
+  if (countInput && currentCustomer) countInput.value = Math.min(currentCustomer.bottles || 1, 20);
+  const notesInput = document.getElementById('pickup-notes');
+  if (notesInput) notesInput.value = '';
+  Modal.open('pickup-modal');
+}
+window.openPickupModal = openPickupModal;
+
+function savePickup() {
+  const dateVal  = document.getElementById('pickup-date')?.value;
+  const countVal = parseInt(document.getElementById('pickup-count')?.value) || 0;
+  const notes    = document.getElementById('pickup-notes')?.value?.trim() || '';
+
+  if (!dateVal) { Toast.warning('Missing Date', 'Please select a pickup date.'); return; }
+  if (countVal < 1) { Toast.warning('Invalid Count', 'Enter at least 1 bottle.'); return; }
+
+  const pickup = {
+    id: uid('pkp_'),
+    customerId: currentCustomer.id,
+    date: new Date(dateVal + 'T12:00:00').getTime(),
+    count: countVal,
+    notes,
+    status: 'scheduled',
+    createdAt: Date.now(),
+  };
+
+  Store.push(WB.KEYS.pickups, pickup);
+  Notifs.push(currentCustomer.id, 'subscription', 'Pickup Scheduled!',
+    `Your bottle pickup on ${new Date(pickup.date).toLocaleDateString('en-US', { month:'short', day:'numeric' })} is confirmed.`);
+
+  Modal.close('pickup-modal');
+  Toast.success('Pickup Scheduled!', `${countVal} bottle${countVal > 1 ? 's' : ''} on ${new Date(pickup.date).toLocaleDateString('en-US', { month:'short', day:'numeric' })}.`);
+  renderBottles();
+}
+window.savePickup = savePickup;
+
+function cancelPickup(pickupId) {
+  Store.removeItem(WB.KEYS.pickups, pickupId);
+  Toast.info('Cancelled', 'Pickup has been removed.');
+  renderBottles();
+}
+window.cancelPickup = cancelPickup;
+
+document.addEventListener('DOMContentLoaded', function () {
+  Modal.init('pickup-modal');
+});
 
 // Expose globals needed by inline onclick handlers
 window.addToCartQuick   = addToCartQuick;

@@ -20,7 +20,8 @@ const WB = {
     settings:     'wb_settings',
     currentUser:  'wb_current_user',
     cartKey:      'wb_cart',
-    seeded:       'wb_seeded_v3',
+    pickups:      'wb_pickups',
+    seeded:       'wb_seeded_v4',
   },
   CREDS: {
     customer: { email: 'demo@waterboy.com',   password: 'water2026' },
@@ -123,11 +124,11 @@ const SEED = {
   ],
 
   zones: [
-    { id:'zone_1', name:'Elk Grove Central',  city:'Elk Grove', zipCodes:['95624','95758'], active:true },
-    { id:'zone_2', name:'Elk Grove South',    city:'Elk Grove', zipCodes:['95757','95759'], active:true },
-    { id:'zone_3', name:'Elk Grove North',    city:'Elk Grove', zipCodes:['95624','95626'], active:true },
-    { id:'zone_4', name:'Laguna',             city:'Elk Grove', zipCodes:['95758'], active:true },
-    { id:'zone_5', name:'Rancho Cordova',     city:'Rancho Cordova', zipCodes:['95670','95742'], active:false },
+    { id:'zone_1', name:'Elk Grove Central',  city:'Elk Grove', zipCodes:['95624','95758'], active:true,  deliveryDays:[1,2,3,4,5,6] },
+    { id:'zone_2', name:'Elk Grove South',    city:'Elk Grove', zipCodes:['95757','95759'], active:true,  deliveryDays:[1,2,3,4,5,6] },
+    { id:'zone_3', name:'Elk Grove North',    city:'Elk Grove', zipCodes:['95624','95626'], active:true,  deliveryDays:[1,3,5] },
+    { id:'zone_4', name:'Laguna',             city:'Elk Grove', zipCodes:['95758'], active:true,          deliveryDays:[2,4,6] },
+    { id:'zone_5', name:'Rancho Cordova',     city:'Rancho Cordova', zipCodes:['95670','95742'], active:false, deliveryDays:[1,2,3,4,5] },
   ],
 
   drivers: [
@@ -343,6 +344,7 @@ function seedData() {
   Store.set(WB.KEYS.notifications, SEED.notifications);
   Store.set(WB.KEYS.inventory,  SEED.inventory);
   Store.set(WB.KEYS.settings,   SEED.settings);
+  Store.set(WB.KEYS.pickups,    []);
   Store.set(WB.KEYS.seeded,     true);
 }
 

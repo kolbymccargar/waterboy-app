@@ -318,6 +318,9 @@
       <div id="admin-page-products" class="admin-page">
         <div class="page-header">
           <div><div class="page-header-title">Products</div><div class="page-header-sub">Product catalog management</div></div>
+          <div class="page-header-actions">
+            <button class="btn btn-primary" onclick="openProductModal(null)">+ Add Product</button>
+          </div>
         </div>
         <div id="admin-products-grid" class="three-col-grid"></div>
       </div>
@@ -429,6 +432,56 @@
     </main>
   </div><!-- /.admin-main -->
 </div><!-- /#admin-app-screen -->
+
+<!-- Product Edit Modal -->
+<div id="product-edit-modal" class="modal-overlay">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <span class="modal-title" id="product-modal-title">Edit Product</span>
+      <button class="modal-close" data-close-modal><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="product-modal-id" />
+      <div class="two-col-grid" style="gap:12px;margin-bottom:14px">
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Icon (emoji)</label>
+          <input id="product-modal-icon" class="form-input" placeholder="💧" style="font-size:1.25rem" />
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Category</label>
+          <select id="product-modal-category" class="form-select">
+            <option value="delivery">delivery</option>
+            <option value="dispensers">dispensers</option>
+            <option value="instore">instore</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Product Name</label>
+        <input id="product-modal-name" class="form-input" placeholder="e.g. 5-Gallon RO Water" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea id="product-modal-desc" class="form-input" rows="2" placeholder="Short product description"></textarea>
+      </div>
+      <div class="two-col-grid" style="gap:12px;margin-bottom:14px">
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Price ($)</label>
+          <input id="product-modal-price" class="form-input" type="number" step="0.01" min="0" placeholder="6.99" />
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Unit Label</label>
+          <input id="product-modal-unit" class="form-input" placeholder="per bottle" />
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+        <input type="checkbox" id="product-modal-popular" style="width:16px;height:16px;accent-color:var(--cyan)" />
+        <label for="product-modal-popular" class="form-label" style="margin:0;cursor:pointer">Mark as Popular</label>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="saveProduct()">Save Product</button>
+    </div>
+  </div>
+</div>
 
 <!-- Admin Order Detail Modal -->
 <div id="admin-order-modal" class="modal-overlay">

@@ -451,21 +451,126 @@ function renderProductsPage() {
   const grid = document.getElementById('admin-products-grid');
   if (!grid) return;
 
-  grid.innerHTML = products.map(p => `
-    <div class="card">
+  grid.innerHTML = products.map(p => {
+    const catBadge = p.category === 'delivery' ? 'badge-cyan' : p.category === 'dispensers' ? 'badge-blue' : 'badge-ghost';
+    const isActive = p.active !== false;
+    return `<div class="card" style="${!isActive ? 'opacity:.55' : ''}">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
         <div style="font-size:1.75rem">${p.icon}</div>
-        <span class="badge ${p.category === 'delivery' ? 'badge-cyan' : p.category === 'dispensers' ? 'badge-blue' : 'badge-ghost'}">${p.category}</span>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <span class="badge ${catBadge}">${p.category}</span>
+          ${!isActive ? '<span class="badge badge-ghost">Inactive</span>' : ''}
+          ${p.popular ? '<span class="badge badge-yellow">Popular</span>' : ''}
+        </div>
       </div>
       <div style="font-weight:700;font-size:.9375rem;margin-bottom:4px">${p.name}</div>
       <div style="font-size:.8125rem;color:var(--white-40);margin-bottom:10px">${p.description}</div>
-      <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
         <span class="mono text-cyan">${fmtMoney(p.price)}</span>
         <span style="font-size:.75rem;color:var(--white-40)">${p.unit}</span>
       </div>
-      ${p.popular ? '<div class="mt-8"><span class="badge badge-yellow">Popular</span></div>' : ''}
-    </div>`).join('');
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-secondary" onclick="openProductModal('${p.id}')">Edit</button>
+        <button class="btn btn-sm ${isActive ? 'btn-secondary' : 'btn-primary'}" onclick="toggleProductActive('${p.id}')">${isActive ? 'Deactivate' : 'Activate'}</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteProduct('${p.id}')">Delete</button>
+      </div>
+    </div>`;
+  }).join('');
 }
+
+function openProductModal(productId) {
+  const titleEl = document.getElementById('product-modal-title');
+  const idEl    = document.getElementById('product-modal-id');
+  const nameEl  = document.getElementById('product-modal-name');
+  const descEl  = document.getElementById('product-modal-desc');
+  const priceEl = document.getElementById('product-modal-price');
+  const unitEl  = document.getElementById('product-modal-unit');
+  const iconEl  = document.getElementById('product-modal-icon');
+  const catEl   = document.getElementById('product-modal-category');
+  const popEl   = document.getElementById('product-modal-popular');
+
+  if (productId) {
+    const p = Store.findById(WB.KEYS.products, productId);
+    if (!p) return;
+    if (titleEl) titleEl.textContent = 'Edit Product';
+    if (idEl)    idEl.value    = p.id;
+    if (nameEl)  nameEl.value  = p.name;
+    if (descEl)  descEl.value  = p.description || '';
+    if (priceEl) priceEl.value = (p.price / 100).toFixed(2);
+    if (unitEl)  unitEl.value  = p.unit || '';
+    if (iconEl)  iconEl.value  = p.icon || '';
+    if (catEl)   catEl.value   = p.category || 'delivery';
+    if (popEl)   popEl.checked = !!p.popular;
+  } else {
+    if (titleEl) titleEl.textContent = 'Add New Product';
+    if (idEl)    idEl.value   = '';
+    if (nameEl)  nameEl.value = '';
+    if (descEl)  descEl.value = '';
+    if (priceEl) priceEl.value = '';
+    if (unitEl)  unitEl.value  = 'per bottle';
+    if (iconEl)  iconEl.value  = '💧';
+    if (catEl)   catEl.value   = 'delivery';
+    if (popEl)   popEl.checked = false;
+  }
+  Modal.open('product-edit-modal');
+}
+window.openProductModal = openProductModal;
+
+function saveProduct() {
+  const id    = document.getElementById('product-modal-id')?.value?.trim();
+  const name  = document.getElementById('product-modal-name')?.value?.trim();
+  const desc  = document.getElementById('product-modal-desc')?.value?.trim();
+  const price = parseFloat(document.getElementById('product-modal-price')?.value);
+  const unit  = document.getElementById('product-modal-unit')?.value?.trim();
+  const icon  = document.getElementById('product-modal-icon')?.value?.trim();
+  const cat   = document.getElementById('product-modal-category')?.value || 'delivery';
+  const pop   = document.getElementById('product-modal-popular')?.checked || false;
+
+  if (!name) { Toast.warning('Required', 'Product name is required.'); return; }
+  if (isNaN(price) || price < 0) { Toast.warning('Required', 'Enter a valid price.'); return; }
+
+  const priceCents = Math.round(price * 100);
+
+  if (id) {
+    const updated = Store.updateItem(WB.KEYS.products, id, { name, description: desc, price: priceCents, unit, icon, category: cat, popular: pop });
+    console.log('[Admin] Product saved to localStorage:', updated);
+    Toast.success('Product Updated', `${name} saved — price set to $${price.toFixed(2)}.`);
+  } else {
+    const newProd = {
+      id: uid('prod_'),
+      name, description: desc, price: priceCents, unit, icon, category: cat, popular: pop, active: true,
+    };
+    Store.push(WB.KEYS.products, newProd);
+    console.log('[Admin] New product created in localStorage:', newProd);
+    Toast.success('Product Added', `${name} added to catalog.`);
+  }
+
+  Modal.close('product-edit-modal');
+  renderProductsPage();
+}
+window.saveProduct = saveProduct;
+
+function deleteProduct(productId) {
+  const p = Store.findById(WB.KEYS.products, productId);
+  if (!p) return;
+  if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
+  Store.removeItem(WB.KEYS.products, productId);
+  console.log('[Admin] Product deleted from localStorage:', productId);
+  Toast.success('Deleted', `${p.name} removed from catalog.`);
+  renderProductsPage();
+}
+window.deleteProduct = deleteProduct;
+
+function toggleProductActive(productId) {
+  const p = Store.findById(WB.KEYS.products, productId);
+  if (!p) return;
+  const nowActive = p.active === false;
+  const updated = Store.updateItem(WB.KEYS.products, productId, { active: nowActive });
+  console.log('[Admin] Product active state toggled in localStorage:', updated);
+  Toast.success('Updated', `${p.name} ${nowActive ? 'activated' : 'deactivated'}.`);
+  renderProductsPage();
+}
+window.toggleProductActive = toggleProductActive;
 
 // ============================================================
 // DRIVERS PAGE
@@ -578,6 +683,8 @@ window.togglePromo = togglePromo;
 // ============================================================
 // ZONES PAGE
 // ============================================================
+const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
 function renderZonesPage() {
   const zones = Store.getList(WB.KEYS.zones);
   const grid = document.getElementById('zones-grid');
@@ -585,17 +692,39 @@ function renderZonesPage() {
 
   grid.innerHTML = zones.map(z => {
     const zoneOrders = Orders.getAll().filter(o => o.zone === z.id && !['delivered','cancelled'].includes(o.status));
+    const days = z.deliveryDays || [1,2,3,4,5,6];
+    const dayCheckboxes = DAY_NAMES.map((name, i) => `
+      <label style="display:flex;align-items:center;gap:4px;font-size:.75rem;cursor:pointer">
+        <input type="checkbox" class="zone-day-cb" data-zone="${z.id}" data-day="${i}" ${days.includes(i) ? 'checked' : ''}
+          onchange="saveZoneDeliveryDays('${z.id}')" style="accent-color:var(--cyan);width:13px;height:13px" />
+        ${name}
+      </label>`).join('');
+
+    const zipChips = (z.zipCodes || []).map(zip =>
+      `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--white-04);border:1px solid var(--blue-border);border-radius:6px;padding:3px 8px;font-size:.75rem;font-family:var(--font-mono)">
+        ${zip}
+        <button onclick="removeZipFromZone('${z.id}','${zip}')" style="background:none;border:none;color:var(--white-40);cursor:pointer;padding:0;line-height:1;font-size:.875rem" title="Remove">×</button>
+      </span>`
+    ).join('');
+
     return `<div class="zone-card ${!z.active ? 'inactive' : ''}">
       <div class="zone-card-head">
         <div class="zone-card-name">${z.name}</div>
         <span class="badge ${z.active ? 'badge-green' : 'badge-ghost'}">${z.active ? 'Active' : 'Inactive'}</span>
       </div>
-      <div style="font-size:.8125rem;color:var(--white-40);margin-bottom:8px">${z.city}</div>
-      <div class="zone-zips">${z.zipCodes.map(zip => `<span class="zone-zip-chip">${zip}</span>`).join('')}</div>
-      <div style="margin-top:12px;display:flex;justify-content:space-between;font-size:.8125rem">
-        <span style="color:var(--white-40)">${zoneOrders.length} active orders</span>
-        <button class="btn btn-ghost btn-sm" onclick="toggleZone('${z.id}')">${z.active ? 'Disable' : 'Enable'}</button>
+      <div style="font-size:.8125rem;color:var(--white-40);margin-bottom:10px">${z.city} · ${zoneOrders.length} active orders</div>
+
+      <div style="font-size:.75rem;font-weight:600;color:var(--white-40);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">ZIP Codes</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${zipChips || '<span style="font-size:.8125rem;color:var(--white-40)">No ZIPs added</span>'}</div>
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <input id="zip-input-${z.id}" class="form-input" placeholder="Add ZIP" style="flex:1;font-family:var(--font-mono);font-size:.875rem" maxlength="10" onkeydown="if(event.key==='Enter')addZipToZone('${z.id}')" />
+        <button class="btn btn-sm btn-secondary" onclick="addZipToZone('${z.id}')">Add</button>
       </div>
+
+      <div style="font-size:.75rem;font-weight:600;color:var(--white-40);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Delivery Days</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px">${dayCheckboxes}</div>
+
+      <button class="btn btn-ghost btn-sm btn-full" onclick="toggleZone('${z.id}')">${z.active ? 'Disable Zone' : 'Enable Zone'}</button>
     </div>`;
   }).join('');
 }
@@ -608,6 +737,41 @@ function toggleZone(zoneId) {
   renderZonesPage();
 }
 window.toggleZone = toggleZone;
+
+function addZipToZone(zoneId) {
+  const input = document.getElementById('zip-input-' + zoneId);
+  const zip = input?.value?.trim();
+  if (!zip) return;
+  const zone = Store.findById(WB.KEYS.zones, zoneId);
+  if (!zone) return;
+  const zips = zone.zipCodes || [];
+  if (zips.includes(zip)) { Toast.warning('Duplicate', `ZIP ${zip} is already in this zone.`); return; }
+  const updated = Store.updateItem(WB.KEYS.zones, zoneId, { zipCodes: [...zips, zip] });
+  console.log('[Admin] Zone ZIPs updated in localStorage:', updated);
+  Toast.success('ZIP Added', `${zip} added to ${zone.name}.`);
+  renderZonesPage();
+}
+window.addZipToZone = addZipToZone;
+
+function removeZipFromZone(zoneId, zip) {
+  const zone = Store.findById(WB.KEYS.zones, zoneId);
+  if (!zone) return;
+  const updated = Store.updateItem(WB.KEYS.zones, zoneId, { zipCodes: (zone.zipCodes || []).filter(z => z !== zip) });
+  console.log('[Admin] Zone ZIPs updated in localStorage:', updated);
+  Toast.success('ZIP Removed', `${zip} removed from ${zone.name}.`);
+  renderZonesPage();
+}
+window.removeZipFromZone = removeZipFromZone;
+
+function saveZoneDeliveryDays(zoneId) {
+  const checked = [];
+  document.querySelectorAll(`.zone-day-cb[data-zone="${zoneId}"]`).forEach(cb => {
+    if (cb.checked) checked.push(parseInt(cb.dataset.day));
+  });
+  const updated = Store.updateItem(WB.KEYS.zones, zoneId, { deliveryDays: checked });
+  console.log('[Admin] Zone delivery days saved to localStorage:', updated);
+}
+window.saveZoneDeliveryDays = saveZoneDeliveryDays;
 
 // ============================================================
 // REPORTS PAGE
@@ -729,5 +893,5 @@ function renderPagination(containerId, current, total, onPageChange) {
 // MODALS
 // ============================================================
 function initModals() {
-  ['admin-order-modal','customer-detail-modal'].forEach(id => Modal.init(id));
+  ['admin-order-modal','customer-detail-modal','product-edit-modal'].forEach(id => Modal.init(id));
 }

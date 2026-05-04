@@ -207,6 +207,29 @@
         <button id="apply-promo-btn" class="btn btn-secondary">Apply</button>
       </div>
 
+      <!-- Recurring Delivery -->
+      <div id="recurring-section" style="display:none;margin:0 0 12px;padding:16px;background:var(--white-04);border:1px solid var(--blue-border);border-radius:var(--radius-md)">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-weight:600;font-size:.9375rem">Recurring Delivery</div>
+            <div style="font-size:.8125rem;color:var(--white-40);margin-top:2px">Auto-reorder on a schedule</div>
+          </div>
+          <div class="toggle-switch" id="recurring-toggle"></div>
+        </div>
+        <div id="recurring-options" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--blue-border)">
+          <div style="font-size:.8125rem;font-weight:600;color:var(--white-40);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Frequency</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <button class="btn btn-sm btn-primary" data-freq="weekly" onclick="selectFrequency(this,'weekly')">Weekly</button>
+            <button class="btn btn-sm btn-secondary" data-freq="biweekly" onclick="selectFrequency(this,'biweekly')">Bi-Weekly</button>
+            <button class="btn btn-sm btn-secondary" data-freq="monthly" onclick="selectFrequency(this,'monthly')">Monthly</button>
+            <button class="btn btn-sm btn-secondary" data-freq="custom" onclick="selectFrequency(this,'custom')">Custom</button>
+          </div>
+          <div id="custom-days-wrap" style="display:none;margin-top:12px">
+            <input type="number" id="recurring-custom-days" class="form-input" placeholder="Every how many days?" min="1" max="365" />
+          </div>
+        </div>
+      </div>
+
       <div class="checkout-btn-wrap">
         <button id="checkout-btn" class="btn btn-primary btn-full btn-lg" disabled>Place Order</button>
       </div>
@@ -220,6 +243,21 @@
         <div class="orders-tab" data-tab="past">Past <span id="tab-past-count"></span></div>
       </div>
       <div id="orders-list" class="orders-list"></div>
+    </section>
+
+    <!-- BOTTLES PAGE -->
+    <section id="page-bottles" class="cust-page">
+      <div style="text-align:center;padding:32px 24px 20px">
+        <div style="font-size:.8125rem;font-weight:600;color:var(--white-40);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Bottles on Hand</div>
+        <div style="font-size:4.5rem;font-weight:800;color:var(--cyan);font-family:var(--font-head);line-height:1" id="bottles-count">0</div>
+        <div style="font-size:.875rem;color:var(--white-40);margin-top:4px">5-gallon jugs</div>
+      </div>
+      <div style="padding:0 20px 20px">
+        <button class="btn btn-primary btn-full btn-lg" onclick="openPickupModal()">+ Schedule Bottle Pickup</button>
+      </div>
+      <div style="margin:0 20px 8px;font-size:.8125rem;font-weight:600;color:var(--white-40);text-transform:uppercase;letter-spacing:.06em">Scheduled Pickups</div>
+      <div id="pickups-list" style="padding:0 20px"></div>
+      <div style="height:80px"></div>
     </section>
 
     <!-- ACCOUNT PAGE -->
@@ -280,12 +318,41 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/></svg>
       <span class="nav-tab-label">Orders</span>
     </div>
+    <div class="nav-tab" data-page="bottles">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 2h6v3l2 3v12a2 2 0 01-2 2H9a2 2 0 01-2-2V8l2-3V2z"/><line x1="7" y1="11" x2="17" y2="11"/></svg>
+      <span class="nav-tab-label">Bottles</span>
+    </div>
     <div class="nav-tab" data-page="account">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       <span class="nav-tab-label">Account</span>
     </div>
   </nav>
 
+</div>
+
+<!-- Pickup Schedule Modal -->
+<div id="pickup-modal" class="modal-overlay">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <span class="modal-title">Schedule Bottle Pickup</span>
+      <button class="modal-close" data-close-modal><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Pickup Date</label>
+        <input type="date" id="pickup-date" class="form-input" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Number of Bottles</label>
+        <input type="number" id="pickup-count" class="form-input" min="1" max="20" placeholder="How many bottles to pick up?" value="1" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes <span style="color:var(--white-40);font-weight:400">(optional)</span></label>
+        <input type="text" id="pickup-notes" class="form-input" placeholder="Leave at door, ring bell, etc." />
+      </div>
+      <button class="btn btn-primary btn-full" onclick="savePickup()" style="margin-top:8px">Confirm Pickup</button>
+    </div>
+  </div>
 </div>
 
 <!-- Order Detail Modal -->
