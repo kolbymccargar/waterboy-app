@@ -14,7 +14,8 @@
       "PowerShell(Start-Process \"C:\\\\Users\\\\silly\\\\Desktop\\\\elementary-website\\\\index.html\")",
       "Bash(git branch *)",
       "Bash(Start-Process *)",
-      "PowerShell(Start-Process \"C:\\\\Users\\\\silly\\\\Desktop\\\\waterboy-app\\\\driver.html\")"
+      "PowerShell(Start-Process \"C:\\\\Users\\\\silly\\\\Desktop\\\\waterboy-app\\\\driver.html\")",
+      "Bash(git commit *)"
     ]
   }
 }
