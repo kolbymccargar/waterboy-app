@@ -625,7 +625,7 @@ function renderProductsPage() {
       <div style="font-weight:700;font-size:.9375rem;margin-bottom:4px">${p.name}</div>
       <div style="font-size:.8125rem;color:var(--white-40);margin-bottom:10px">${p.description}</div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <span class="mono text-cyan">${fmtMoney(p.price)}</span>
+        <span class="mono text-cyan">${p.price !== null && p.price !== undefined ? fmtMoney(p.price) : 'Inquire'}</span>
         <span style="font-size:.75rem;color:var(--white-40)">${p.unit}</span>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -655,7 +655,7 @@ function openProductModal(productId) {
     if (idEl)    idEl.value    = p.id;
     if (nameEl)  nameEl.value  = p.name;
     if (descEl)  descEl.value  = p.description || '';
-    if (priceEl) priceEl.value = (p.price / 100).toFixed(2);
+    if (priceEl) priceEl.value = p.price !== null && p.price !== undefined ? (p.price / 100).toFixed(2) : '';
     if (unitEl)  unitEl.value  = p.unit || '';
     if (iconEl)  iconEl.value  = p.icon || '';
     if (catEl)   catEl.value   = p.category || 'delivery';
@@ -679,25 +679,27 @@ function saveProduct() {
   const id    = document.getElementById('product-modal-id')?.value?.trim();
   const name  = document.getElementById('product-modal-name')?.value?.trim();
   const desc  = document.getElementById('product-modal-desc')?.value?.trim();
-  const price = parseFloat(document.getElementById('product-modal-price')?.value);
+  const priceStr = document.getElementById('product-modal-price')?.value?.trim();
+  const price = priceStr === '' ? null : parseFloat(priceStr);
   const unit  = document.getElementById('product-modal-unit')?.value?.trim();
   const icon  = document.getElementById('product-modal-icon')?.value?.trim();
-  const cat   = document.getElementById('product-modal-category')?.value || 'delivery';
+  const cat   = document.getElementById('product-modal-category')?.value || '5-Gallon Jugs';
   const pop   = document.getElementById('product-modal-popular')?.checked || false;
 
   if (!name) { Toast.warning('Required', 'Product name is required.'); return; }
-  if (isNaN(price) || price < 0) { Toast.warning('Required', 'Enter a valid price.'); return; }
+  if (price !== null && (isNaN(price) || price < 0)) { Toast.warning('Required', 'Enter a valid price or leave blank for Inquire.'); return; }
 
-  const priceCents = Math.round(price * 100);
+  const priceCents = price !== null ? Math.round(price * 100) : null;
+  const inquire = price === null;
 
   if (id) {
-    const updated = Store.updateItem(WB.KEYS.products, id, { name, description: desc, price: priceCents, unit, icon, category: cat, popular: pop });
+    const updated = Store.updateItem(WB.KEYS.products, id, { name, description: desc, price: priceCents, unit, icon, category: cat, popular: pop, inquire });
     console.log('[Admin] Product saved to localStorage:', updated);
-    Toast.success('Product Updated', `${name} saved — price set to $${price.toFixed(2)}.`);
+    Toast.success('Product Updated', `${name} saved — ${price !== null ? '$' + price.toFixed(2) : 'Inquire'}.`);
   } else {
     const newProd = {
       id: uid('prod_'),
-      name, description: desc, price: priceCents, unit, icon, category: cat, popular: pop, active: true,
+      name, description: desc, price: priceCents, unit, icon, category: cat, popular: pop, active: true, inquire,
     };
     Store.push(WB.KEYS.products, newProd);
     console.log('[Admin] New product created in localStorage:', newProd);

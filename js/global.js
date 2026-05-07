@@ -22,7 +22,7 @@ const WB = {
     cartKey:      'wb_cart',
     pickups:      'wb_pickups',
     blockedDates: 'wb_blocked_dates',
-    seeded:       'wb_seeded_v5',
+    seeded:       'wb_seeded_v6',
   },
   CREDS: {
     customer: { email: 'demo@waterboy.com',   password: 'water2026' },
@@ -39,6 +39,71 @@ const WB = {
     cancelled:        'Cancelled',
   },
 };
+
+// ============================================================
+// SUBSCRIPTION PLANS
+// ============================================================
+const SUBSCRIPTION_PLANS = {
+  monthly: [
+    { id:'plan_solo',       name:'Solo',      price:2100,  jugs:2,  freq:'Monthly', tag:'STARTER',    tagColor:'cyan',    features:['2 × 5-gal jugs','Purified water','Free delivery 0–3 mi'], savings:'Saves $26 vs Water.com' },
+    { id:'plan_family',     name:'Family',    price:4200,  jugs:4,  freq:'Monthly', tag:'MOST POPULAR',tagColor:'green',   features:['4 × 5-gal jugs','Purified or Spring','Priority scheduling'], savings:'Saves $7 vs Water.com' },
+    { id:'plan_household',  name:'Household', price:5700,  jugs:6,  freq:'Monthly', tag:'BEST VALUE',  tagColor:'yellow',  features:['6 × 5-gal jugs','Choice of water type','Cooler rental add-on'], savings:'Saves $9 vs Water.com' },
+    { id:'plan_office',     name:'Office',    price:7200,  jugs:8,  freq:'Monthly', tag:'OFFICE',      tagColor:'blue',    features:['8 × 5-gal jugs','Bi-weekly option','Invoice billing'], savings:'Saves $10+ vs Water.com' },
+    { id:'plan_max',        name:'Max Bundle',price:9500,  jugs:12, freq:'Monthly', tag:'PREMIUM',     tagColor:'purple',  features:['12 × 5-gal jugs','Alkaline or Spring','Cooler rental included'], savings:'Saves $22 vs Water.com' },
+  ],
+  alkaline: [
+    { id:'plan_alk_solo',   name:'Alkaline Solo',  price:2500, jugs:2,  freq:'Monthly', tag:'Only us!', tagColor:'cyan',   features:['2 × 5-gal alkaline','pH 8.5+','Premium wellness water'] },
+    { id:'plan_alk_family', name:'Alkaline Family', price:4500, jugs:4,  freq:'Monthly', tag:'Only us!', tagColor:'cyan',   features:['4 × 5-gal alkaline','pH 8.5+','Priority scheduling'] },
+    { id:'plan_alk_max',    name:'Alkaline Max',    price:6000, jugs:6,  freq:'Monthly', tag:'Only us!', tagColor:'cyan',   features:['6 × 5-gal alkaline','pH 8.5+','Cooler rental add-on'] },
+  ],
+};
+
+// ============================================================
+// DELIVERY ZONE DETECTION (HAVERSINE)
+// ============================================================
+const STORE_LAT = 38.4088;
+const STORE_LNG = -121.4208;
+
+const ZIP_COORDS = {
+  '95758': { lat:38.4088, lng:-121.4208 },
+  '95757': { lat:38.3930, lng:-121.4490 },
+  '95624': { lat:38.4380, lng:-121.3850 },
+  '95759': { lat:38.3780, lng:-121.4300 },
+  '95830': { lat:38.4750, lng:-121.4350 },
+  '95829': { lat:38.4700, lng:-121.3900 },
+  '95828': { lat:38.4900, lng:-121.4100 },
+  '95823': { lat:38.5100, lng:-121.4500 },
+  '95822': { lat:38.5200, lng:-121.4900 },
+  '95832': { lat:38.4600, lng:-121.4800 },
+  '95630': { lat:38.5800, lng:-121.2700 },
+  '95670': { lat:38.5900, lng:-121.2800 },
+  '95826': { lat:38.5400, lng:-121.3800 },
+  '95831': { lat:38.4900, lng:-121.5200 },
+  '95655': { lat:38.3500, lng:-121.5000 },
+  '95693': { lat:38.3200, lng:-121.3500 },
+  '95820': { lat:38.5300, lng:-121.4600 },
+  '95825': { lat:38.5700, lng:-121.4000 },
+};
+
+function haversineMiles(lat1, lng1, lat2, lng2) {
+  const R = 3958.8;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLng/2) * Math.sin(dLng/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function getZoneForZip(zip) {
+  const coords = ZIP_COORDS[zip];
+  if (!coords) return { zone: null, miles: null, fee: 0, label: 'outside', outside: true };
+  const miles = haversineMiles(STORE_LAT, STORE_LNG, coords.lat, coords.lng);
+  if (miles <= 3)  return { zone:'zone_1', miles, fee:0,   label:'✓ Free delivery!', outside:false };
+  if (miles <= 6)  return { zone:'zone_2', miles, fee:499, label:'Zone 2 — $4.99 delivery', outside:false };
+  if (miles <= 9)  return { zone:'zone_3', miles, fee:999, label:'Zone 3 — $9.99 delivery', outside:false };
+  return { zone:'zone_out', miles, fee:0, label:'Outside delivery area — call us', outside:true };
+}
 
 // ============================================================
 // STORAGE HELPERS
@@ -111,26 +176,51 @@ function fmtMoney(cents) {
 const SEED = {
 
   products: [
-    { id:'prod_1', name:'5-Gallon RO Water',      category:'delivery', price:699,  unit:'per bottle', icon:'💧', description:'Pure reverse osmosis water. Crisp, clean, and refreshing.', popular:true },
-    { id:'prod_2', name:'5-Gallon Alkaline Water', category:'delivery', price:799,  unit:'per bottle', icon:'⚡', description:'Alkaline ionized water, pH 8.5–9.5. Electrolyte enhanced.', popular:true },
-    { id:'prod_3', name:'5-Gallon Hydrogen Water', category:'delivery', price:999,  unit:'per bottle', icon:'🌿', description:'Hydrogen-infused antioxidant water. Premium wellness choice.', popular:false },
-    { id:'prod_4', name:'3-Gallon RO Water',       category:'delivery', price:499,  unit:'per bottle', icon:'💧', description:'Compact reverse osmosis water. Perfect for smaller households.', popular:false },
-    { id:'prod_5', name:'Standard Dispenser',       category:'dispensers', price:4999, unit:'one-time', icon:'🏠', description:'Hot & cold tabletop dispenser. Easy bottle swap.', popular:true },
-    { id:'prod_6', name:'Premium Dispenser',        category:'dispensers', price:7999, unit:'one-time', icon:'✨', description:'Hot, cold & room temp. Includes child lock & night mode.', popular:false },
-    { id:'prod_7', name:'40 lb Bag Ice',            category:'instore',   price:499,  unit:'per bag', icon:'🧊', description:'Crystal clear premium ice. Perfect for parties and events.', popular:true },
-    { id:'prod_8', name:'5-Gallon Jug (Empty)',     category:'instore',   price:1299, unit:'each', icon:'🫙', description:'BPA-free polycarbonate jug. Reusable for years.', popular:false },
-    { id:'prod_9', name:'3-Gallon Jug (Empty)',     category:'instore',   price:999,  unit:'each', icon:'🫙', description:'Compact BPA-free jug. Fits small countertop dispensers.', popular:false },
-    { id:'prod_10',name:'Water Pitcher Filter',     category:'instore',   price:2499, unit:'each', icon:'🔬', description:'6-stage countertop filter pitcher. Removes chlorine, lead & more.', popular:false },
-    { id:'prod_11',name:'RO Filter Replacement',    category:'instore',   price:4999, unit:'set', icon:'🔧', description:'Compatible with most under-sink RO systems. 6-month supply.', popular:false },
+    // 5-Gallon Jugs
+    { id:'p_5g1',  name:'5-Gallon Water Jug',         category:'5-Gallon Jugs',             price:750,  unit:'per jug', icon:'💧', image:'images/5 Gallon Bottle.jpg',            description:'Pure reverse osmosis water. Crisp, clean, and refreshing. Our best-seller.', popular:true,  inquire:false },
+    { id:'p_5g2',  name:'5-Gallon Jug with Spigot',   category:'5-Gallon Jugs',             price:750,  unit:'per jug', icon:'💧', image:'images/5 Gallon bottle w Spigot.jpg',   description:'Same great purified water with a convenient built-in spigot for easy dispensing.', popular:false, inquire:false },
+    { id:'p_5g3',  name:'5-Gallon Glass Bottle',       category:'5-Gallon Jugs',             price:750,  unit:'per jug', icon:'💧', image:'images/5 Gallon Glass Bottle.jpg',      description:'Premium glass bottle for the purest taste. BPA-free and eco-friendly.', popular:false, inquire:false },
+    // 3-Gallon Jugs
+    { id:'p_3g1',  name:'3-Gallon Water Jug',          category:'3-Gallon Jugs',             price:750,  unit:'per jug', icon:'💧', image:'images/3 Gallon Bottle .jpg',           description:'Compact purified water jug. Perfect for smaller households and offices.', popular:false, inquire:false },
+    { id:'p_3g2',  name:'3-Gallon Tall Bottle',        category:'3-Gallon Jugs',             price:750,  unit:'per jug', icon:'💧', image:'images/3 Gallon Tall Bottle.jpg',       description:'Tall-profile 3-gallon bottle. Fits most standard countertop dispensers.', popular:false, inquire:false },
+    { id:'p_3g3',  name:'3-Gallon Jug with Spigot',   category:'3-Gallon Jugs',             price:750,  unit:'per jug', icon:'💧', image:'images/3 Gallon Bottle with Spigot.jpg',description:'3-gallon jug with built-in spigot. Easy pour without a dispenser.', popular:false, inquire:false },
+    { id:'p_3g4',  name:'3-Gallon Glass Bottle',       category:'3-Gallon Jugs',             price:750,  unit:'per jug', icon:'💧', image:'images/3 Gallon Glass Bottle.jpg',      description:'Glass 3-gallon bottle for the purest taste experience.', popular:false, inquire:false },
+    // Glass & Personal Bottles
+    { id:'p_gb1',  name:'1-Gallon Glass Bottle',       category:'Glass & Personal Bottles',  price:null, unit:'each', icon:'🫙', image:'images/1 Gallon Glass Bottle.jpg',       description:'1-gallon glass bottle. Great for home, gym, or office. Contact us for pricing.', popular:false, inquire:true },
+    { id:'p_gb2',  name:'Half-Gallon Glass Bottle',    category:'Glass & Personal Bottles',  price:null, unit:'each', icon:'🫙', image:'images/Half Gallon Glass Bottle.jpg',    description:'Half-gallon glass bottle. Perfect personal size for daily use.', popular:false, inquire:true },
+    { id:'p_gb3',  name:'32oz Glass Bottle',           category:'Glass & Personal Bottles',  price:null, unit:'each', icon:'🫙', image:'images/32oz Glass Bottle.jpg',          description:'32oz personal glass water bottle. Refillable and eco-friendly.', popular:false, inquire:true },
+    // Aluminum Bottles
+    { id:'p_al1',  name:'36oz Aluminum Bottle',        category:'Aluminum Bottles',          price:null, unit:'each', icon:'🥤', image:'images/36oz Aluminum Bottle.jpg',        description:'36oz aluminum bottle. Durable, lightweight, and keeps water cold.', popular:false, inquire:true },
+    { id:'p_al2',  name:'Skinny 12oz Aluminum Bottle', category:'Aluminum Bottles',          price:null, unit:'each', icon:'🥤', image:'images/Skinny 12oz Aluminum Bottle.jpg', description:'Slim 12oz aluminum bottle. Great for on-the-go hydration.', popular:false, inquire:true },
+    { id:'p_al3',  name:'30oz Aluminum Coffee Mug',    category:'Aluminum Bottles',          price:null, unit:'each', icon:'☕', image:'images/30oz Aluminum Coffee Mug.jpg',    description:'30oz aluminum coffee mug. Double-walled to keep drinks hot or cold.', popular:false, inquire:true },
+    // Water Dispensers
+    { id:'p_wd1',  name:'Brio Bottom-Load Dispenser',  category:'Water Dispensers',          price:27999,unit:'one-time', icon:'🏠', image:'images/Screenshot 2025-11-03 152515.png', description:'Brio bottom-load water dispenser. Hot & cold, no heavy lifting. Easy jug loading.', popular:true,  inquire:false },
+    { id:'p_wd2',  name:'Brio Top-Load Dispenser',     category:'Water Dispensers',          price:12999,unit:'one-time', icon:'🏠', image:'images/Screenshot 2025-11-03 152515.png', description:'Brio top-load water dispenser. Hot & cold. Compact and affordable.', popular:false, inquire:false },
+    { id:'p_wd3',  name:'Ceramic Water Crock',         category:'Water Dispensers',          price:null, unit:'each', icon:'🏺', image:'images/Crock.jpg',                      description:'Classic ceramic water crock dispenser. Elegant design, no electricity needed.', popular:false, inquire:true },
+    // Salt Sticks
+    { id:'p_ss1',  name:'Citrus Salt Stick',           category:'Hydration & Electrolytes',  price:null, unit:'each', icon:'🍋', image:'images/Citrus Salt Stick.jpg',           description:'Citrus-flavored electrolyte stick. Add to your water for instant hydration boost.', popular:false, inquire:true },
+    { id:'p_ss2',  name:'Grapefruit Salt Stick',       category:'Hydration & Electrolytes',  price:null, unit:'each', icon:'🍊', image:'images/Grapefruit Stick.jpg',            description:'Grapefruit-flavored electrolyte salt stick. Refreshing and replenishing.', popular:false, inquire:true },
+    { id:'p_ss3',  name:'Lemonade Salt Stick',         category:'Hydration & Electrolytes',  price:null, unit:'each', icon:'🍋', image:'images/Lemonade Salt Stick.jpg',         description:'Lemonade-flavored electrolyte stick. Sweet, tangy, and hydrating.', popular:false, inquire:true },
+    { id:'p_ss4',  name:'Mango Chili Salt Stick',      category:'Hydration & Electrolytes',  price:null, unit:'each', icon:'🥭', image:'images/Mango Chili Stick.jpg',           description:'Mango chili electrolyte stick. Unique flavor with a kick.', popular:false, inquire:true },
+    { id:'p_ss5',  name:'Orange Salt Stick',           category:'Hydration & Electrolytes',  price:null, unit:'each', icon:'🍊', image:'images/Orange Salt Stick.jpg',           description:'Orange-flavored electrolyte stick. Classic citrus hydration.', popular:false, inquire:true },
+    { id:'p_ss6',  name:'Raspberry Salt Stick',        category:'Hydration & Electrolytes',  price:null, unit:'each', icon:'🫐', image:'images/Raspberry Salt Stick.jpg',        description:'Raspberry-flavored electrolyte stick. Berry-fresh hydration.', popular:false, inquire:true },
+    { id:'p_ss7',  name:'Watermelon Salt Stick',       category:'Hydration & Electrolytes',  price:null, unit:'each', icon:'🍉', image:'images/Watermelon Salt Stick.jpg',       description:'Watermelon-flavored electrolyte stick. Summer hydration in a stick.', popular:false, inquire:true },
+    { id:'p_ss8',  name:'Raw Unflavored Stick',        category:'Hydration & Electrolytes',  price:null, unit:'each', icon:'⚗️', image:'images/Raw Unf;avored Stick.jpg',        description:'Raw unflavored electrolyte stick. Pure minerals, no additives.', popular:false, inquire:true },
+    { id:'p_ss9',  name:'Hydrogen Prebiotic Stick',    category:'Hydration & Electrolytes',  price:null, unit:'each', icon:'🔬', image:'images/Hydrogen Prebiotic Stick.jpg',    description:'Hydrogen + prebiotic electrolyte stick. Supports gut health and hydration.', popular:true,  inquire:true },
+    // Canned Drinks
+    { id:'p_cd1',  name:'Black Cherry Lime (16 fl oz)',category:'Canned Drinks (16 fl oz)',  price:null, unit:'each', icon:'🍒', image:'images/Black Cherry Lime 16 fl oz.jpg',  description:'Black cherry lime flavored sparkling water. 16 fl oz can.', popular:false, inquire:true },
+    { id:'p_cd2',  name:'Grapefruit Salt (16 fl oz)',  category:'Canned Drinks (16 fl oz)',  price:null, unit:'each', icon:'🍊', image:'images/Grapefruit Salt 16 fl oz.jpg',    description:'Grapefruit salt sparkling water with electrolytes. 16 fl oz can.', popular:false, inquire:true },
+    { id:'p_cd3',  name:'Watermelon Salt (16 fl oz)',  category:'Canned Drinks (16 fl oz)',  price:null, unit:'each', icon:'🍉', image:'images/Watermelon Salt 16 fl oz.jpg',    description:'Watermelon salt sparkling water with electrolytes. 16 fl oz can.', popular:false, inquire:true },
+    { id:'p_cd4',  name:'Citrus Salt Can (16 fl oz)',  category:'Canned Drinks (16 fl oz)',  price:null, unit:'each', icon:'🍋', image:'images/citrus salt can.jpg',             description:'Citrus salt sparkling water with electrolytes. 16 fl oz can.', popular:false, inquire:true },
+    // Energy & Supplements
+    { id:'p_en1',  name:'ZipFizz Energy Mix',          category:'Energy & Supplements',      price:null, unit:'each', icon:'⚡', image:'images/ZipFizz.jpg',                     description:'ZipFizz energy drink mix. Vitamin B12, antioxidants, and electrolytes.', popular:true,  inquire:true },
   ],
 
   zones: [
-    { id:'zone_primary', name:'Elk Grove — Primary', city:'Elk Grove', zipCodes:['95624','95757','95758','95759'], active:true, deliveryFee:0, radius:10, center:'7119 Elk Grove Blvd, Elk Grove, CA', deliveryDays:[1,2,3,4,5,6] },
-    { id:'zone_1', name:'Elk Grove Central',  city:'Elk Grove', zipCodes:['95624','95758'], active:true,  deliveryFee:299, deliveryDays:[1,2,3,4,5,6] },
-    { id:'zone_2', name:'Elk Grove South',    city:'Elk Grove', zipCodes:['95757','95759'], active:true,  deliveryFee:299, deliveryDays:[1,2,3,4,5,6] },
-    { id:'zone_3', name:'Elk Grove North',    city:'Elk Grove', zipCodes:['95624','95626'], active:true,  deliveryFee:299, deliveryDays:[1,3,5] },
-    { id:'zone_4', name:'Laguna',             city:'Elk Grove', zipCodes:['95758'], active:true,          deliveryFee:299, deliveryDays:[2,4,6] },
-    { id:'zone_5', name:'Rancho Cordova',     city:'Rancho Cordova', zipCodes:['95670','95742'], active:false, deliveryFee:499, deliveryDays:[1,2,3,4,5] },
+    { id:'zone_1', name:'Zone 1 — 0–3 mi (Free)',   deliveryFee:0,   minMiles:0, maxMiles:3,  active:true,  deliveryDays:[1,2,3,4,5,6] },
+    { id:'zone_2', name:'Zone 2 — 3–6 mi ($4.99)',  deliveryFee:499, minMiles:3, maxMiles:6,  active:true,  deliveryDays:[1,2,3,4,5,6] },
+    { id:'zone_3', name:'Zone 3 — 6–9 mi ($9.99)',  deliveryFee:999, minMiles:6, maxMiles:9,  active:true,  deliveryDays:[1,2,3,4,5,6] },
+    { id:'zone_out', name:'Outside Delivery Area',   deliveryFee:0,   minMiles:9, maxMiles:999, active:false, deliveryDays:[] },
   ],
 
   drivers: [
@@ -193,41 +283,41 @@ const SEED = {
   ],
 
   customers: [
-    { id:'cust_1',  name:'Alex Torres',    email:'demo@waterboy.com',      password:'water2026', phone:'(916) 555-2001', address:'5842 Laguna Blvd',        city:'Elk Grove', zip:'95758', zone:'zone_1', bottles:4, joinedAt:daysAgo(365), loyaltyPts:2840, subscriptionActive:true,  subscriptionProduct:'prod_1', subscriptionFrequency:'weekly',    referralCode:'ALEX-8F2K', totalOrders:52, totalSpent:36400 },
+    { id:'cust_1',  name:'Alex Torres',    email:'demo@waterboy.com',      password:'water2026', phone:'(916) 555-2001', address:'5842 Laguna Blvd',        city:'Elk Grove', zip:'95758', zone:'zone_1', bottles:4, joinedAt:daysAgo(365), loyaltyPts:2840, subscriptionActive:true,  subscriptionProduct:'p_5g1', subscriptionFrequency:'weekly',    referralCode:'ALEX-8F2K', totalOrders:52, totalSpent:36400 },
     { id:'cust_2',  name:'Jamie Lee',      email:'jamie@example.com',       password:'demo1234',  phone:'(916) 555-2002', address:'9210 Bruceville Rd',      city:'Elk Grove', zip:'95757', zone:'zone_2', bottles:2, joinedAt:daysAgo(280), loyaltyPts:1420, subscriptionActive:false, subscriptionProduct:null,     subscriptionFrequency:null,        referralCode:'JAMI-K91P', totalOrders:28, totalSpent:18900 },
-    { id:'cust_3',  name:'Morgan Chen',    email:'morgan@example.com',      password:'demo1234',  phone:'(916) 555-2003', address:'3401 Elk Grove Blvd',     city:'Elk Grove', zip:'95624', zone:'zone_3', bottles:6, joinedAt:daysAgo(190), loyaltyPts:3100, subscriptionActive:true,  subscriptionProduct:'prod_2', subscriptionFrequency:'biweekly',  referralCode:'MORG-W3X7', totalOrders:41, totalSpent:29800 },
+    { id:'cust_3',  name:'Morgan Chen',    email:'morgan@example.com',      password:'demo1234',  phone:'(916) 555-2003', address:'3401 Elk Grove Blvd',     city:'Elk Grove', zip:'95624', zone:'zone_3', bottles:6, joinedAt:daysAgo(190), loyaltyPts:3100, subscriptionActive:true,  subscriptionProduct:'p_5g2', subscriptionFrequency:'biweekly',  referralCode:'MORG-W3X7', totalOrders:41, totalSpent:29800 },
     { id:'cust_4',  name:'Taylor Nguyen',  email:'taylor@example.com',      password:'demo1234',  phone:'(916) 555-2004', address:'7851 Calvine Rd',         city:'Elk Grove', zip:'95624', zone:'zone_1', bottles:3, joinedAt:daysAgo(120), loyaltyPts:760,  subscriptionActive:false, subscriptionProduct:null,     subscriptionFrequency:null,        referralCode:'TAYL-P5M2', totalOrders:14, totalSpent:9800 },
-    { id:'cust_5',  name:'Jordan Rivera',  email:'jordan@example.com',      password:'demo1234',  phone:'(916) 555-2005', address:'1200 Harbour Point Dr',   city:'Elk Grove', zip:'95757', zone:'zone_2', bottles:5, joinedAt:daysAgo(400), loyaltyPts:4210, subscriptionActive:true,  subscriptionProduct:'prod_3', subscriptionFrequency:'weekly',    referralCode:'JORD-Q8T4', totalOrders:68, totalSpent:52100 },
+    { id:'cust_5',  name:'Jordan Rivera',  email:'jordan@example.com',      password:'demo1234',  phone:'(916) 555-2005', address:'1200 Harbour Point Dr',   city:'Elk Grove', zip:'95757', zone:'zone_2', bottles:5, joinedAt:daysAgo(400), loyaltyPts:4210, subscriptionActive:true,  subscriptionProduct:'p_5g3', subscriptionFrequency:'weekly',    referralCode:'JORD-Q8T4', totalOrders:68, totalSpent:52100 },
     { id:'cust_6',  name:'Riley Park',     email:'riley@example.com',       password:'demo1234',  phone:'(916) 555-2006', address:'4490 Stonefield Dr',      city:'Elk Grove', zip:'95758', zone:'zone_4', bottles:2, joinedAt:daysAgo(60),  loyaltyPts:340,  subscriptionActive:false, subscriptionProduct:null,     subscriptionFrequency:null,        referralCode:'RILE-N2V9', totalOrders:7,  totalSpent:4900 },
-    { id:'cust_7',  name:'Cameron Walsh',  email:'cameron@example.com',     password:'demo1234',  phone:'(916) 555-2007', address:'8801 Sheldon Rd',         city:'Elk Grove', zip:'95624', zone:'zone_3', bottles:4, joinedAt:daysAgo(230), loyaltyPts:1880, subscriptionActive:true,  subscriptionProduct:'prod_1', subscriptionFrequency:'monthly',   referralCode:'CAME-H6L3', totalOrders:33, totalSpent:23100 },
+    { id:'cust_7',  name:'Cameron Walsh',  email:'cameron@example.com',     password:'demo1234',  phone:'(916) 555-2007', address:'8801 Sheldon Rd',         city:'Elk Grove', zip:'95624', zone:'zone_3', bottles:4, joinedAt:daysAgo(230), loyaltyPts:1880, subscriptionActive:true,  subscriptionProduct:'p_5g1', subscriptionFrequency:'monthly',   referralCode:'CAME-H6L3', totalOrders:33, totalSpent:23100 },
     { id:'cust_8',  name:'Drew Patel',     email:'drew@example.com',        password:'demo1234',  phone:'(916) 555-2008', address:'2200 Vineyard Blvd',      city:'Elk Grove', zip:'95758', zone:'zone_4', bottles:1, joinedAt:daysAgo(45),  loyaltyPts:190,  subscriptionActive:false, subscriptionProduct:null,     subscriptionFrequency:null,        referralCode:'DREW-C4R8', totalOrders:4,  totalSpent:2800 },
-    { id:'cust_9',  name:'Avery Kim',      email:'avery@example.com',       password:'demo1234',  phone:'(916) 555-2009', address:'6625 Laguna Blvd #204',   city:'Elk Grove', zip:'95758', zone:'zone_1', bottles:3, joinedAt:daysAgo(310), loyaltyPts:2220, subscriptionActive:true,  subscriptionProduct:'prod_2', subscriptionFrequency:'biweekly',  referralCode:'AVER-Z7J5', totalOrders:44, totalSpent:31200 },
+    { id:'cust_9',  name:'Avery Kim',      email:'avery@example.com',       password:'demo1234',  phone:'(916) 555-2009', address:'6625 Laguna Blvd #204',   city:'Elk Grove', zip:'95758', zone:'zone_1', bottles:3, joinedAt:daysAgo(310), loyaltyPts:2220, subscriptionActive:true,  subscriptionProduct:'p_5g2', subscriptionFrequency:'biweekly',  referralCode:'AVER-Z7J5', totalOrders:44, totalSpent:31200 },
     { id:'cust_10', name:'Blake Martin',   email:'blake@example.com',       password:'demo1234',  phone:'(916) 555-2010', address:'1050 Iron Point Rd',      city:'Folsom',    zip:'95630', zone:'zone_1', bottles:2, joinedAt:daysAgo(155), loyaltyPts:910,  subscriptionActive:false, subscriptionProduct:null,     subscriptionFrequency:null,        referralCode:'BLAK-F1Q6', totalOrders:18, totalSpent:12600 },
-    { id:'cust_11', name:'Skylar Brooks',  email:'skylar@example.com',      password:'demo1234',  phone:'(916) 555-2011', address:'9900 Gerber Rd',          city:'Elk Grove', zip:'95624', zone:'zone_3', bottles:6, joinedAt:daysAgo(500), loyaltyPts:5600, subscriptionActive:true,  subscriptionProduct:'prod_1', subscriptionFrequency:'weekly',    referralCode:'SKYL-M9B2', totalOrders:87, totalSpent:61000 },
+    { id:'cust_11', name:'Skylar Brooks',  email:'skylar@example.com',      password:'demo1234',  phone:'(916) 555-2011', address:'9900 Gerber Rd',          city:'Elk Grove', zip:'95624', zone:'zone_3', bottles:6, joinedAt:daysAgo(500), loyaltyPts:5600, subscriptionActive:true,  subscriptionProduct:'p_5g1', subscriptionFrequency:'weekly',    referralCode:'SKYL-M9B2', totalOrders:87, totalSpent:61000 },
     { id:'cust_12', name:'Quinn Flores',   email:'quinn@example.com',       password:'demo1234',  phone:'(916) 555-2012', address:'3300 Bruceville Rd',      city:'Elk Grove', zip:'95757', zone:'zone_2', bottles:4, joinedAt:daysAgo(88),  loyaltyPts:520,  subscriptionActive:false, subscriptionProduct:null,     subscriptionFrequency:null,        referralCode:'QUIN-T3W0', totalOrders:9,  totalSpent:6300 },
-    { id:'cust_13', name:'Peyton Scott',   email:'peyton@example.com',      password:'demo1234',  phone:'(916) 555-2013', address:'7720 Waterman Dr',        city:'Elk Grove', zip:'95758', zone:'zone_4', bottles:2, joinedAt:daysAgo(200), loyaltyPts:1240, subscriptionActive:true,  subscriptionProduct:'prod_1', subscriptionFrequency:'biweekly',  referralCode:'PEYT-A5D1', totalOrders:25, totalSpent:17500 },
+    { id:'cust_13', name:'Peyton Scott',   email:'peyton@example.com',      password:'demo1234',  phone:'(916) 555-2013', address:'7720 Waterman Dr',        city:'Elk Grove', zip:'95758', zone:'zone_4', bottles:2, joinedAt:daysAgo(200), loyaltyPts:1240, subscriptionActive:true,  subscriptionProduct:'p_5g1', subscriptionFrequency:'biweekly',  referralCode:'PEYT-A5D1', totalOrders:25, totalSpent:17500 },
     { id:'cust_14', name:'Reese Murphy',   email:'reese@example.com',       password:'demo1234',  phone:'(916) 555-2014', address:'550 Gibson Dr',           city:'Elk Grove', zip:'95624', zone:'zone_3', bottles:3, joinedAt:daysAgo(75),  loyaltyPts:440,  subscriptionActive:false, subscriptionProduct:null,     subscriptionFrequency:null,        referralCode:'REES-G8K4', totalOrders:8,  totalSpent:5600 },
-    { id:'cust_15', name:'Finley Adams',   email:'finley@example.com',      password:'demo1234',  phone:'(916) 555-2015', address:'4100 Vineyard Blvd',      city:'Elk Grove', zip:'95758', zone:'zone_4', bottles:5, joinedAt:daysAgo(420), loyaltyPts:3780, subscriptionActive:true,  subscriptionProduct:'prod_2', subscriptionFrequency:'weekly',    referralCode:'FINL-U2P7', totalOrders:61, totalSpent:43500 },
+    { id:'cust_15', name:'Finley Adams',   email:'finley@example.com',      password:'demo1234',  phone:'(916) 555-2015', address:'4100 Vineyard Blvd',      city:'Elk Grove', zip:'95758', zone:'zone_4', bottles:5, joinedAt:daysAgo(420), loyaltyPts:3780, subscriptionActive:true,  subscriptionProduct:'p_5g2', subscriptionFrequency:'weekly',    referralCode:'FINL-U2P7', totalOrders:61, totalSpent:43500 },
   ],
 
   buildOrders() {
     const statuses = ['delivered','delivered','delivered','delivered','out_for_delivery','preparing','confirmed','pending'];
     const drivers  = ['drv_1','drv_2','drv_3'];
-    const products = ['prod_1','prod_2','prod_3','prod_4'];
+    const products = ['p_5g1','p_5g2','p_3g1','p_5g3'];
     const orders   = [];
 
     const snap = [
       // Recent active
-      { custId:'cust_1', prodId:'prod_1', qty:4, daysBack:0, hrs:3,  status:'out_for_delivery', drvId:'drv_1' },
-      { custId:'cust_3', prodId:'prod_2', qty:2, daysBack:0, hrs:1,  status:'preparing',        drvId:'drv_1' },
-      { custId:'cust_9', prodId:'prod_2', qty:3, daysBack:0, hrs:5,  status:'confirmed',        drvId:'drv_2' },
-      { custId:'cust_5', prodId:'prod_3', qty:2, daysBack:0, hrs:2,  status:'out_for_delivery', drvId:'drv_2' },
-      { custId:'cust_11',prodId:'prod_1', qty:6, daysBack:0, hrs:7,  status:'pending',          drvId:null    },
-      { custId:'cust_15',prodId:'prod_2', qty:4, daysBack:0, hrs:4,  status:'preparing',        drvId:'drv_1' },
+      { custId:'cust_1', prodId:'p_5g1', qty:4, daysBack:0, hrs:3,  status:'out_for_delivery', drvId:'drv_1' },
+      { custId:'cust_3', prodId:'p_5g2', qty:2, daysBack:0, hrs:1,  status:'preparing',        drvId:'drv_1' },
+      { custId:'cust_9', prodId:'p_5g1', qty:3, daysBack:0, hrs:5,  status:'confirmed',        drvId:'drv_2' },
+      { custId:'cust_5', prodId:'p_5g3', qty:2, daysBack:0, hrs:2,  status:'out_for_delivery', drvId:'drv_2' },
+      { custId:'cust_11',prodId:'p_5g1', qty:6, daysBack:0, hrs:7,  status:'pending',          drvId:null    },
+      { custId:'cust_15',prodId:'p_5g1', qty:4, daysBack:0, hrs:4,  status:'preparing',        drvId:'drv_1' },
       // Today delivered
-      { custId:'cust_2', prodId:'prod_1', qty:2, daysBack:0, hrs:10, status:'delivered',        drvId:'drv_1' },
-      { custId:'cust_7', prodId:'prod_1', qty:4, daysBack:0, hrs:9,  status:'delivered',        drvId:'drv_2' },
-      { custId:'cust_13',prodId:'prod_1', qty:2, daysBack:0, hrs:8,  status:'delivered',        drvId:'drv_2' },
+      { custId:'cust_2', prodId:'p_5g1', qty:2, daysBack:0, hrs:10, status:'delivered',        drvId:'drv_1' },
+      { custId:'cust_7', prodId:'p_5g1', qty:4, daysBack:0, hrs:9,  status:'delivered',        drvId:'drv_2' },
+      { custId:'cust_13',prodId:'p_5g1', qty:2, daysBack:0, hrs:8,  status:'delivered',        drvId:'drv_2' },
     ];
 
     snap.forEach((s, i) => {
@@ -302,15 +392,14 @@ const SEED = {
   ],
 
   inventory: [
-    { id:'inv_1', productId:'prod_1', label:'5-Gal RO — Stock',    qty:480, unit:'bottles', lowAt:50  },
-    { id:'inv_2', productId:'prod_2', label:'5-Gal Alkaline — Stock', qty:312, unit:'bottles', lowAt:50 },
-    { id:'inv_3', productId:'prod_3', label:'5-Gal Hydrogen — Stock', qty:88,  unit:'bottles', lowAt:20 },
-    { id:'inv_4', productId:'prod_4', label:'3-Gal RO — Stock',    qty:175, unit:'bottles', lowAt:30  },
-    { id:'inv_5', productId:'prod_7', label:'40 lb Ice Bags',       qty:240, unit:'bags',    lowAt:30  },
-    { id:'inv_6', productId:'prod_8', label:'5-Gal Jugs (empty)',   qty:62,  unit:'jugs',    lowAt:10  },
-    { id:'inv_7', productId:'prod_9', label:'3-Gal Jugs (empty)',   qty:44,  unit:'jugs',    lowAt:10  },
-    { id:'inv_8', productId:'prod_5', label:'Standard Dispensers',  qty:12,  unit:'units',   lowAt:3   },
-    { id:'inv_9', productId:'prod_6', label:'Premium Dispensers',   qty:7,   unit:'units',   lowAt:2   },
+    { id:'inv_1', productId:'p_5g1', label:'5-Gal Water Jugs',         qty:480, unit:'bottles', lowAt:50 },
+    { id:'inv_2', productId:'p_5g2', label:'5-Gal Jugs w/ Spigot',     qty:120, unit:'bottles', lowAt:20 },
+    { id:'inv_3', productId:'p_5g3', label:'5-Gal Glass Bottles',       qty:60,  unit:'bottles', lowAt:10 },
+    { id:'inv_4', productId:'p_3g1', label:'3-Gal Water Jugs',          qty:175, unit:'bottles', lowAt:30 },
+    { id:'inv_5', productId:'p_3g2', label:'3-Gal Tall Bottles',        qty:80,  unit:'bottles', lowAt:15 },
+    { id:'inv_6', productId:'p_wd1', label:'Brio Bottom-Load Disp.',    qty:12,  unit:'units',   lowAt:3  },
+    { id:'inv_7', productId:'p_wd2', label:'Brio Top-Load Disp.',       qty:18,  unit:'units',   lowAt:3  },
+    { id:'inv_8', productId:'p_en1', label:'ZipFizz Energy Mix',        qty:200, unit:'tubes',   lowAt:25 },
   ],
 
   settings: {
@@ -519,12 +608,12 @@ const Orders = {
     let subtotal = 0;
     const lineItems = items.map(item => {
       const prod = products.find(p => p.id === item.productId);
-      subtotal += prod.price * item.qty;
+      subtotal += (prod.price || 0) * item.qty;
       return { productId: prod.id, productName: prod.name, qty: item.qty, price: prod.price };
     });
 
-    const settings = Store.get(WB.KEYS.settings) || SEED.settings;
-    const deliveryFee = subtotal >= settings.freeDeliveryThreshold ? 0 : settings.deliveryFee;
+    const zoneInfo = getZoneForZip(cust.zip || '');
+    const deliveryFee = zoneInfo.outside ? 0 : zoneInfo.fee;
     let discount = 0;
 
     if (promoCode) {
@@ -599,7 +688,7 @@ const Cart = {
   get()       { return Store.get(WB.KEYS.cartKey) || []; },
   save(items) { Store.set(WB.KEYS.cartKey, items); },
   count()     { return this.get().reduce((sum, i) => sum + i.qty, 0); },
-  total()     { return this.get().reduce((sum, i) => sum + i.price * i.qty, 0); },
+  total()     { return this.get().reduce((sum, i) => sum + (i.price || 0) * i.qty, 0); },
   add(productId, qty = 1) {
     const items = this.get();
     const products = Store.getList(WB.KEYS.products);

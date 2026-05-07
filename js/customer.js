@@ -11,7 +11,8 @@ let currentUser        = null;
 let currentCustomer    = null;
 let currentPage        = 'home';
 let currentOrdersTab   = 'active';
-let currentProductFilter = 'all';
+let currentProductFilter   = 'all';
+let currentProductCategory = null;
 let notifPanelOpen     = false;
 let hydrationGlasses   = 0;
 let recurringEnabled   = false;
@@ -158,6 +159,23 @@ function initSignup() {
     e.preventDefault();
     handleSignup();
   });
+
+  const zipInput = document.getElementById('su-zip');
+  if (zipInput) {
+    zipInput.addEventListener('input', function () {
+      const zip = this.value.trim();
+      const feedback = document.getElementById('su-zone-feedback');
+      if (!feedback) return;
+      if (zip.length === 5) {
+        const z = getZoneForZip(zip);
+        feedback.textContent = z.label;
+        feedback.style.color = z.outside ? 'var(--danger)' : z.fee === 0 ? 'var(--success)' : 'var(--cyan)';
+        feedback.style.display = 'block';
+      } else {
+        feedback.style.display = 'none';
+      }
+    });
+  }
 }
 
 function handleSignup() {
@@ -186,12 +204,18 @@ function handleSignup() {
   const existing = Store.getList(WB.KEYS.customers).find(c => c.email === email);
   if (existing) { errEl.textContent = 'An account with that email already exists.'; return; }
 
+  const zoneInfo = getZoneForZip(zip);
+  if (zoneInfo.outside) {
+    errEl.textContent = 'Sorry, your ZIP code is outside our delivery area. Call us at (916) 619-3218.';
+    return;
+  }
+
   const newCust = {
     id: uid('cust_'),
     name, email, phone: phone || '', password,
     address: street, city, zip, state,
     gateCode: gate, deliveryNotes: notes, deliveryLocation: location,
-    zone: 'zone_1', bottles: 0,
+    zone: zoneInfo.zone || 'zone_1', bottles: 0,
     joinedAt: Date.now(), loyaltyPts: 0,
     subscriptionActive: false, subscriptionProduct: null, subscriptionFrequency: null,
     referralCode: name.slice(0,4).toUpperCase() + '-' + Math.random().toString(36).slice(2,6).toUpperCase(),
@@ -260,7 +284,56 @@ function renderHome() {
   renderActiveOrderBanner();
   renderReorderCards();
   renderSubscriptionCard();
+  renderComparisonCard();
+  renderZoneChip();
 }
+
+function renderZoneChip() {
+  const el = document.getElementById('home-zone-chip');
+  if (!el || !currentCustomer) return;
+  const z = getZoneForZip(currentCustomer.zip || '');
+  if (z.outside) {
+    el.textContent = '⚠️ Outside area';
+    el.style.color = 'var(--danger)';
+  } else if (z.fee === 0) {
+    el.textContent = '✓ Free delivery';
+    el.style.color = 'var(--success)';
+  } else {
+    el.textContent = z.fee === 499 ? '📦 $4.99 delivery' : '📦 $9.99 delivery';
+    el.style.color = 'var(--cyan)';
+  }
+}
+
+function renderComparisonCard() {
+  const el = document.getElementById('why-waterboy-card');
+  if (!el) return;
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-weight:700;font-size:.9375rem;color:var(--white-90)">Why Waterboy?</div>
+      <span style="font-size:.75rem;color:var(--cyan);cursor:pointer" onclick="toggleComparisonDetail()">View details ›</span>
+    </div>
+    <div style="display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:8px;font-size:.75rem;margin-bottom:8px">
+      <span style="color:var(--white-40)">Jugs</span><span style="color:var(--cyan);font-weight:700">Us</span><span style="color:var(--white-40)">Water.com</span><span style="color:var(--success);font-weight:700">Save</span>
+      <span>2</span><span style="color:var(--cyan);font-weight:700">$21</span><span style="color:var(--white-40)">$46.96</span><span style="color:var(--success)">$25.96</span>
+      <span>4</span><span style="color:var(--cyan);font-weight:700">$42</span><span style="color:var(--white-40)">$48.95</span><span style="color:var(--success)">$6.95</span>
+      <span>6</span><span style="color:var(--cyan);font-weight:700">$57</span><span style="color:var(--white-40)">$65.93</span><span style="color:var(--success)">$8.93</span>
+    </div>
+    <div id="comparison-detail" style="display:none;margin-top:4px">
+      <div style="display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:8px;font-size:.75rem;margin-bottom:8px">
+        <span>8</span><span style="color:var(--cyan);font-weight:700">$72</span><span style="color:var(--white-40)">$82.91</span><span style="color:var(--success)">$10.91</span>
+        <span>12</span><span style="color:var(--cyan);font-weight:700">$95</span><span style="color:var(--white-40)">$116.87</span><span style="color:var(--success)">$21.87</span>
+      </div>
+    </div>
+    <div style="font-size:.6875rem;color:var(--white-30);margin-top:6px">*Water.com: $8.49/jug + $14.99 delivery fee</div>
+    <button class="btn btn-primary btn-sm btn-full" style="margin-top:12px" onclick="openSubScreen('acct-subscription')">See Subscription Plans</button>`;
+}
+
+function toggleComparisonDetail() {
+  const el = document.getElementById('comparison-detail');
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+window.toggleComparisonDetail = toggleComparisonDetail;
 
 function getTimeGreeting() {
   const h = new Date().getHours();
@@ -392,11 +465,15 @@ function renderReorderCards() {
 
   container.innerHTML = topItems.map(item => {
     const prod = products.find(p => p.id === item.productId) || {};
+    const imgHtml = prod.image
+      ? `<img src="${prod.image}" alt="${prod.name || ''}" style="width:56px;height:56px;object-fit:contain;border-radius:8px;margin-bottom:6px" onerror="this.outerHTML='<div class=reorder-icon>${prod.icon || '💧'}</div>'" />`
+      : `<div class="reorder-icon">${prod.icon || '💧'}</div>`;
+    const priceDisplay = prod.price !== null ? fmtMoney(prod.price || 0) : 'Inquire';
     return `<div class="reorder-card" onclick="openAddToCartModal('${prod.id}')">
-      <div class="reorder-icon">${prod.icon || '💧'}</div>
+      ${imgHtml}
       <div class="reorder-name">${prod.name || 'Product'}</div>
-      <div class="reorder-price">${fmtMoney(prod.price || 0)}</div>
-      <div class="reorder-btn">+ Add to Cart</div>
+      <div class="reorder-price">${priceDisplay}</div>
+      <div class="reorder-btn">${prod.inquire ? 'Inquire' : '+ Add to Cart'}</div>
     </div>`;
   }).join('');
 
@@ -409,13 +486,15 @@ function renderSubscriptionCard() {
   if (!currentCustomer) return;
   const c = currentCustomer;
   if (c.subscriptionActive) {
-    const products = Store.getList(WB.KEYS.products);
-    const prod = products.find(p => p.id === c.subscriptionProduct);
     if (card) {
       card.style.display = 'block';
       const titleEl = document.getElementById('sub-card-title');
       const nextEl  = document.getElementById('sub-card-next');
-      if (titleEl) titleEl.textContent = (prod ? prod.name : 'Subscription') + ' — ' + capitalize(c.subscriptionFrequency || '');
+      const allPlans = [...SUBSCRIPTION_PLANS.monthly, ...SUBSCRIPTION_PLANS.alkaline];
+      const plan = allPlans.find(p => p.id === c.subscriptionPlanId);
+      const planName = plan ? plan.name : (c.subscriptionDesc || 'Subscription');
+      const price = plan ? ` — $${(plan.price/100).toFixed(0)}/mo` : '';
+      if (titleEl) titleEl.textContent = planName + price;
       if (nextEl)  nextEl.textContent  = 'Next delivery: this week';
     }
     if (noneCard) noneCard.style.display = 'none';
@@ -428,33 +507,72 @@ function renderSubscriptionCard() {
 // ============================================================
 // PRODUCTS PAGE
 // ============================================================
+const PRODUCT_CATEGORIES = [
+  '5-Gallon Jugs',
+  '3-Gallon Jugs',
+  'Glass & Personal Bottles',
+  'Aluminum Bottles',
+  'Water Dispensers',
+  'Hydration & Electrolytes',
+  'Canned Drinks (16 fl oz)',
+  'Energy & Supplements',
+];
+
 function renderProducts() {
   const grid = document.getElementById('products-grid');
   if (!grid) return;
 
   const allProducts = Store.getList(WB.KEYS.products).filter(p => p.active !== false);
   const searchTerm = (document.getElementById('product-search')?.value || '').toLowerCase();
-  const shown = allProducts.filter(p =>
-    (!searchTerm || p.name.toLowerCase().includes(searchTerm) || (p.description || '').toLowerCase().includes(searchTerm)) &&
-    (currentProductFilter === 'all' || (currentProductFilter === 'popular' && p.popular))
-  );
 
-  grid.innerHTML = shown.map(p => `
-    <div class="product-item" onclick="openProductDetail('${p.id}')">
-      <div class="product-item-icon">${p.icon}</div>
-      <div class="product-item-body">
-        <div class="product-item-name">${p.name}${p.popular ? ' <span class="badge badge-cyan" style="font-size:.65rem;padding:2px 7px">Popular</span>' : ''}</div>
-        <div class="product-item-desc">${p.description}</div>
-        <div class="product-item-price">${fmtMoney(p.price)} <span style="color:var(--white-40);font-size:.75rem">${p.unit}</span></div>
-      </div>
-      <div class="product-item-actions">
-        <button class="product-add-btn" onclick="event.stopPropagation();openAddToCartModal('${p.id}')" aria-label="Add ${p.name}">+</button>
-      </div>
-    </div>`).join('');
+  let shown = allProducts.filter(p => {
+    if (searchTerm && !p.name.toLowerCase().includes(searchTerm) && !(p.description || '').toLowerCase().includes(searchTerm)) return false;
+    if (currentProductFilter === 'popular') return p.popular;
+    if (currentProductCategory) return p.category === currentProductCategory;
+    return true;
+  });
 
-  if (!shown.length) grid.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div><div class="empty-state-title">No products found</div></div>`;
+  // Group by category when not searching/filtering
+  if (!searchTerm && currentProductFilter === 'all' && !currentProductCategory) {
+    let html = '';
+    PRODUCT_CATEGORIES.forEach(cat => {
+      const catProducts = shown.filter(p => p.category === cat);
+      if (!catProducts.length) return;
+      html += `<div class="prod-cat-head">${cat}</div>`;
+      html += catProducts.map(p => renderProductCard(p)).join('');
+    });
+    // Any uncategorized
+    const uncategorized = shown.filter(p => !PRODUCT_CATEGORIES.includes(p.category));
+    if (uncategorized.length) {
+      html += '<div class="prod-cat-head">Other</div>';
+      html += uncategorized.map(p => renderProductCard(p)).join('');
+    }
+    grid.innerHTML = html || `<div class="empty-state"><div class="empty-state-title">No products found</div></div>`;
+  } else {
+    grid.innerHTML = shown.map(p => renderProductCard(p)).join('') ||
+      `<div class="empty-state"><div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div><div class="empty-state-title">No products found</div></div>`;
+  }
 
   initProductSearch();
+}
+
+function renderProductCard(p) {
+  const priceStr = p.price !== null ? '$' + (p.price / 100).toFixed(2) : 'Inquire';
+  const imgHtml = p.image
+    ? `<img src="${p.image}" alt="${p.name}" class="product-item-img" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="product-item-icon" style="display:none">${p.icon || '💧'}</div>`
+    : `<div class="product-item-icon">${p.icon || '💧'}</div>`;
+  const actionBtn = p.inquire
+    ? `<button class="product-add-btn product-inquire-btn" onclick="event.stopPropagation();openInquireModal('${p.id}')" aria-label="Inquire about ${p.name}" style="font-size:.65rem;padding:0 8px;width:auto;white-space:nowrap">Inquire</button>`
+    : `<button class="product-add-btn" onclick="event.stopPropagation();openAddToCartModal('${p.id}')" aria-label="Add ${p.name}">+</button>`;
+  return `<div class="product-item" onclick="openProductDetail('${p.id}')">
+    <div class="product-item-img-wrap">${imgHtml}</div>
+    <div class="product-item-body">
+      <div class="product-item-name">${p.name}${p.popular ? ' <span class="badge badge-cyan" style="font-size:.6rem;padding:2px 6px">Popular</span>' : ''}</div>
+      <div class="product-item-desc">${p.description}</div>
+      <div class="product-item-price" style="color:${p.price !== null ? 'var(--cyan)' : 'var(--white-40)'}">${priceStr} <span style="color:var(--white-40);font-size:.75rem">${p.unit}</span></div>
+    </div>
+    <div class="product-item-actions">${actionBtn}</div>
+  </div>`;
 }
 
 function initProductSearch() {
@@ -470,6 +588,8 @@ document.addEventListener('click', function (e) {
   document.querySelectorAll('.chip[data-filter]').forEach(c => c.classList.remove('active'));
   filterBtn.classList.add('active');
   currentProductFilter = filterBtn.dataset.filter;
+  currentProductCategory = filterBtn.dataset.category || null;
+  if (!filterBtn.dataset.category) currentProductCategory = null;
   renderProducts();
 });
 
@@ -480,17 +600,37 @@ function openProductDetail(productId) {
   currentDetailProductId = productId;
   currentDetailQty = 1;
 
-  document.getElementById('detail-icon').textContent = prod.icon || '💧';
+  const iconEl = document.getElementById('detail-icon');
+  if (iconEl) {
+    if (prod.image) {
+      iconEl.innerHTML = `<img src="${prod.image}" alt="${prod.name}" style="width:140px;height:140px;object-fit:contain;border-radius:12px" onerror="this.outerHTML='<span style=font-size:4rem>${prod.icon || '💧'}</span>'" />`;
+    } else {
+      iconEl.textContent = prod.icon || '💧';
+    }
+  }
   document.getElementById('detail-name').textContent = prod.name;
-  document.getElementById('detail-price').textContent = fmtMoney(prod.price);
+  const priceEl = document.getElementById('detail-price');
+  if (priceEl) priceEl.textContent = prod.price !== null ? fmtMoney(prod.price) : 'Inquire for Pricing';
   document.getElementById('detail-unit').textContent = prod.unit;
   document.getElementById('detail-desc').textContent = prod.description || '';
   document.getElementById('detail-extra').innerHTML = `
-    Category: ${capitalize(prod.category || 'delivery')}<br>
+    Category: ${prod.category || 'Water'}<br>
     ${prod.popular ? 'Popular item ⭐<br>' : ''}
     BPA-free • pH balanced • Safe for all ages`;
   document.getElementById('detail-qty').textContent = 1;
-  document.getElementById('detail-subtotal').textContent = fmtMoney(prod.price);
+  const subtotalEl = document.getElementById('detail-subtotal');
+  if (subtotalEl) subtotalEl.textContent = prod.price !== null ? fmtMoney(prod.price) : '';
+
+  const addBtn = document.getElementById('detail-add-btn');
+  if (addBtn) {
+    if (prod.inquire) {
+      addBtn.textContent = 'Inquire About This Product';
+      addBtn.onclick = () => openInquireModal(productId);
+    } else {
+      addBtn.textContent = 'Add to Cart';
+      addBtn.onclick = addFromDetail;
+    }
+  }
 
   document.getElementById('product-list-view').style.display   = 'none';
   document.getElementById('product-detail-view').style.display = 'block';
@@ -523,15 +663,33 @@ function addFromDetail() {
 }
 window.addFromDetail = addFromDetail;
 
+// Inquire Modal
+function openInquireModal(productId) {
+  const prod = Store.findById(WB.KEYS.products, productId);
+  if (!prod) return;
+  const nameEl = document.getElementById('inquire-product-name');
+  if (nameEl) nameEl.textContent = prod.name;
+  Modal.open('inquire-modal');
+}
+window.openInquireModal = openInquireModal;
+
 // Add-to-Cart Modal
 function openAddToCartModal(productId) {
   const prod = Store.findById(WB.KEYS.products, productId);
   if (!prod) return;
+  if (prod.inquire) { openInquireModal(productId); return; }
   atcProductId = productId;
   atcQty = 1;
 
   document.getElementById('atc-product-name').textContent = prod.name;
-  document.getElementById('atc-icon').textContent = prod.icon || '💧';
+  const atcIcon = document.getElementById('atc-icon');
+  if (atcIcon) {
+    if (prod.image) {
+      atcIcon.innerHTML = `<img src="${prod.image}" alt="${prod.name}" style="width:80px;height:80px;object-fit:contain;border-radius:8px" onerror="this.outerHTML='${prod.icon || '💧'}'" />`;
+    } else {
+      atcIcon.textContent = prod.icon || '💧';
+    }
+  }
   document.getElementById('atc-price').textContent = fmtMoney(prod.price) + ' each';
   document.getElementById('atc-qty').textContent = 1;
   updateAtcButton(prod);
@@ -588,6 +746,13 @@ function initCartPage() {
   if (checkoutBtn) checkoutBtn.addEventListener('click', openCheckoutFlow);
 }
 
+function getDeliveryFeeForCustomer() {
+  if (!currentCustomer) return 499;
+  const zip = currentCustomer.zip || '';
+  const zoneInfo = getZoneForZip(zip);
+  return zoneInfo.outside ? 0 : zoneInfo.fee;
+}
+
 function renderCart() {
   const listEl  = document.getElementById('cart-list');
   const emptyEl = document.getElementById('cart-empty');
@@ -595,16 +760,16 @@ function renderCart() {
   if (!listEl) return;
 
   const items    = Cart.get();
-  const settings = Store.get(WB.KEYS.settings) || SEED.settings;
   const subtotal = Cart.total();
-  const delivery = subtotal >= settings.freeDeliveryThreshold ? 0 : settings.deliveryFee;
+  const delivery = getDeliveryFeeForCustomer();
+  const zoneInfo = currentCustomer ? getZoneForZip(currentCustomer.zip || '') : { label:'', outside:false };
   const promoCode = document.getElementById('promo-input')?.value?.trim().toUpperCase();
   let discount = 0;
   if (promoCode) {
     const pr = validatePromo(promoCode, subtotal);
     if (pr.ok) discount = pr.discount;
   }
-  const total = subtotal + delivery - discount;
+  const total = subtotal + (zoneInfo.outside ? 0 : delivery) - discount;
   const recurSect = document.getElementById('recurring-section');
 
   if (!items.length) {
@@ -646,9 +811,13 @@ function renderCart() {
 
   const rows = document.getElementById('cart-summary-rows');
   if (rows) {
+    const deliveryDisplay = zoneInfo.outside
+      ? '<span style="color:var(--danger)">Call us</span>'
+      : delivery === 0 ? '<span style="color:var(--success)">FREE</span>' : fmtMoney(delivery);
+    const zoneDisplay = zoneInfo.label ? `<div style="font-size:.75rem;color:${zoneInfo.outside ? 'var(--danger)' : delivery === 0 ? 'var(--success)' : 'var(--white-40)'};margin-top:2px">${zoneInfo.label}</div>` : '';
     rows.innerHTML = `
       <div class="cart-summary-row"><span>Subtotal</span><span>${fmtMoney(subtotal)}</span></div>
-      <div class="cart-summary-row"><span>Delivery</span><span>${delivery === 0 ? '<span style="color:var(--success)">FREE</span>' : fmtMoney(delivery)}</span></div>
+      <div class="cart-summary-row"><span>Delivery ${zoneDisplay}</span><span>${deliveryDisplay}</span></div>
       ${discount ? `<div class="cart-summary-row discount"><span>Promo (${promoCode})</span><span>-${fmtMoney(discount)}</span></div>` : ''}
       <div class="cart-summary-row total"><span>Total</span><span>${fmtMoney(total)}</span></div>`;
   }
@@ -1012,41 +1181,83 @@ window.removeCard = removeCard;
 function renderSubPlanScreen() {
   if (!currentCustomer) return;
   const banner = document.getElementById('current-plan-banner');
-  if (!banner) return;
-  const c = currentCustomer;
-  if (c.subscriptionActive) {
-    banner.style.display = 'block';
-    const products = Store.getList(WB.KEYS.products);
-    const prod = products.find(p => p.id === c.subscriptionProduct);
-    const planName = document.getElementById('current-plan-name');
-    const planDets = document.getElementById('current-plan-details');
-    if (planName) planName.textContent = prod ? prod.name : 'Active Plan';
-    if (planDets) planDets.textContent = capitalize(c.subscriptionFrequency || '') + ' delivery • Next: this week';
-  } else {
-    banner.style.display = 'none';
+  if (banner) {
+    const c = currentCustomer;
+    if (c.subscriptionActive) {
+      banner.style.display = 'block';
+      const planName = document.getElementById('current-plan-name');
+      const planDets = document.getElementById('current-plan-details');
+      const allPlans = [...SUBSCRIPTION_PLANS.monthly, ...SUBSCRIPTION_PLANS.alkaline];
+      const activePlan = allPlans.find(p => p.id === c.subscriptionPlanId);
+      if (planName) planName.textContent = activePlan ? activePlan.name : (c.subscriptionDesc || 'Active Plan');
+      if (planDets) planDets.textContent = capitalize(c.subscriptionFrequency || '') + ' delivery • Next: this week';
+    } else {
+      banner.style.display = 'none';
+    }
   }
+
+  const planListEl = document.getElementById('sub-plan-list');
+  if (!planListEl) return;
+
+  const tagColors = { cyan:'var(--cyan)', green:'var(--success)', yellow:'#eab308', blue:'#3b82f6', purple:'#a855f7' };
+
+  function renderPlanGroup(plans, groupTitle) {
+    return `<div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--white-40);margin:16px 0 10px">${groupTitle}</div>` +
+      plans.map(plan => {
+        const color = tagColors[plan.tagColor] || 'var(--cyan)';
+        const isFeatured = plan.tag === 'MOST POPULAR' || plan.tag === 'BEST VALUE';
+        return `<div class="sub-plan-card${isFeatured ? ' sub-plan-featured' : ''}" onclick="selectPlan('${plan.id}')">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <span class="sub-plan-name">${plan.name}</span>
+            <span style="font-family:var(--font-mono);font-size:1rem;font-weight:800;color:${color}">$${(plan.price/100).toFixed(0)}<span style="font-size:.75rem;font-weight:400;color:var(--white-40)">/mo</span></span>
+          </div>
+          <div style="font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:${color};margin-bottom:8px">${plan.tag}</div>
+          <div style="font-size:.8125rem;color:var(--white-70);margin-bottom:8px">${plan.jugs} × 5-gal jugs ${plan.freq}</div>
+          <ul style="list-style:none;padding:0;margin:0 0 10px;display:flex;flex-direction:column;gap:4px">
+            ${plan.features.map(f => `<li style="font-size:.8rem;color:var(--white-60);display:flex;align-items:center;gap:6px"><span style="color:${color}">✓</span>${f}</li>`).join('')}
+          </ul>
+          ${plan.savings ? `<div style="font-size:.75rem;color:var(--success);font-weight:600">${plan.savings}</div>` : ''}
+          <button class="btn btn-primary btn-full btn-sm" style="margin-top:12px;pointer-events:none">Select Plan</button>
+        </div>`;
+      }).join('');
+  }
+
+  planListEl.innerHTML =
+    renderPlanGroup(SUBSCRIPTION_PLANS.monthly, 'Monthly Bundles') +
+    renderPlanGroup(SUBSCRIPTION_PLANS.alkaline, 'Alkaline Upgrades') +
+    `<div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--white-40);margin:16px 0 10px">À La Carte (Weekly × 4 Weeks)</div>
+    <div style="background:var(--blue-card);border:1px solid var(--blue-border);border-radius:var(--radius-md);padding:14px;font-size:.8125rem">
+      <div style="display:grid;grid-template-columns:auto 1fr 1fr 1fr 1fr;gap:8px;color:var(--white-70)">
+        <span style="color:var(--white-40);font-size:.75rem">Freq</span><span style="color:var(--white-40);font-size:.75rem">1 jug</span><span style="color:var(--white-40);font-size:.75rem">2 jugs</span><span style="color:var(--white-40);font-size:.75rem">3 jugs</span><span style="color:var(--white-40);font-size:.75rem">4 jugs</span>
+        <span style="font-weight:600">Weekly</span><span>$30</span><span>$60</span><span>$90</span><span>$120</span>
+        <span style="font-weight:600">Bi-Weekly</span><span>$15</span><span>$30</span><span>$45</span><span>$60</span>
+        <span style="font-weight:600">Monthly</span><span>$7.50</span><span>$15</span><span>$22.50</span><span>$30</span>
+      </div>
+      <div style="font-size:.75rem;color:var(--white-40);margin-top:10px">$7.50 per jug • Schedule below</div>
+    </div>`;
 }
 
 function selectPlan(planId) {
   if (!currentCustomer) return;
-  const planMap = {
-    starter: { product: 'prod_1', freq: 'biweekly', qty: 2, desc: 'Starter (2 jugs bi-weekly)' },
-    popular: { product: 'prod_1', freq: 'weekly',   qty: 4, desc: 'Premium (4 jugs weekly)' },
-    family:  { product: 'prod_1', freq: 'weekly',   qty: 6, desc: 'Family (6 jugs weekly)' },
-  };
-  const plan = planMap[planId];
+  const allPlans = [...SUBSCRIPTION_PLANS.monthly, ...SUBSCRIPTION_PLANS.alkaline];
+  const plan = allPlans.find(p => p.id === planId);
   if (!plan) return;
+
+  const isAlkaline = SUBSCRIPTION_PLANS.alkaline.some(p => p.id === planId);
+  const productId = isAlkaline ? 'p_5g1' : 'p_5g1';
+
   Store.updateItem(WB.KEYS.customers, currentCustomer.id, {
     subscriptionActive: true,
-    subscriptionProduct: plan.product,
-    subscriptionFrequency: plan.freq,
-    subscriptionQty: plan.qty,
-    subscriptionDesc: plan.desc,
+    subscriptionProduct: productId,
+    subscriptionFrequency: 'monthly',
+    subscriptionQty: plan.jugs,
+    subscriptionDesc: `${plan.name} — ${plan.jugs} jugs/mo`,
     subscriptionPlanId: planId,
+    subscriptionPrice: plan.price,
   });
   currentCustomer = Store.findById(WB.KEYS.customers, currentCustomer.id);
-  Notifs.push(currentCustomer.id, 'subscription', 'Subscription Started!', `You\'re now on the ${plan.desc} plan.`);
-  Toast.success('Subscription Started!', `${plan.desc} activated.`);
+  Notifs.push(currentCustomer.id, 'subscription', 'Subscription Started!', `You're now on the ${plan.name} plan. $${(plan.price/100).toFixed(0)}/mo.`);
+  Toast.success('Subscription Activated!', `${plan.name} — $${(plan.price/100).toFixed(0)}/mo`);
   renderSubPlanScreen();
   renderSubscriptionCard();
 }
@@ -1218,9 +1429,8 @@ function closeCheckout() {
 window.closeCheckout = closeCheckout;
 
 function updateCoTotal() {
-  const settings = Store.get(WB.KEYS.settings) || SEED.settings;
   const subtotal = Cart.total();
-  const delivery = subtotal >= settings.freeDeliveryThreshold ? 0 : settings.deliveryFee;
+  const delivery = getDeliveryFeeForCustomer();
   const total    = subtotal + delivery;
   const display  = document.getElementById('co-order-total-display');
   const payBtn   = document.getElementById('pay-btn');

@@ -1077,8 +1077,12 @@ body.light-mode {
   --blue-frost: #EDF2F7;
   --blue-border:#CBD5E0;
   --white-90:   rgba(15,23,42,0.9);
+  --white-80:   rgba(15,23,42,0.8);
   --white-70:   rgba(15,23,42,0.7);
+  --white-60:   rgba(15,23,42,0.6);
+  --white-50:   rgba(15,23,42,0.5);
   --white-40:   rgba(15,23,42,0.4);
+  --white-30:   rgba(15,23,42,0.3);
   --white-15:   rgba(15,23,42,0.15);
   --white-08:   rgba(15,23,42,0.08);
   --white-04:   rgba(15,23,42,0.04);
@@ -1094,3 +1098,76 @@ body.light-mode #apple-pay-sheet { background: #1C1C1E !important; }
 /* ── Quick actions 5-col ─────────────────────────────────────── */
 .quick-actions .quick-action-icon { width: 46px; height: 46px; }
 .quick-actions .quick-action-icon svg { width: 20px; height: 20px; }
+
+/* ── Product Images ──────────────────────────────────────────── */
+.product-item-img-wrap {
+  width: 64px; height: 64px;
+  border-radius: var(--radius-sm);
+  background: var(--white-04);
+  border: 1px solid var(--blue-border);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.product-item-img {
+  width: 64px; height: 64px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+}
+.product-item { cursor: pointer; }
+.product-item:active { transform: scale(0.98); }
+
+/* ── Product Category Header ─────────────────────────────────── */
+.prod-cat-head {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--white-40);
+  padding: 16px 0 6px;
+  border-bottom: 1px solid var(--blue-border);
+  margin-bottom: 10px;
+}
+.products-grid:first-child .prod-cat-head { padding-top: 4px; }
+
+/* ── Inquire Button ──────────────────────────────────────────── */
+.product-inquire-btn {
+  background: transparent !important;
+  color: var(--cyan) !important;
+  border: 1px solid var(--cyan-dim) !important;
+  font-size: 0.6875rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em;
+  border-radius: var(--radius-sm) !important;
+  padding: 4px 10px !important;
+  height: auto !important;
+  width: auto !important;
+  min-width: 64px;
+}
+.product-inquire-btn:hover {
+  background: var(--cyan-soft) !important;
+  transform: none !important;
+}
+
+/* ── Sub Plan Card (updated) ─────────────────────────────────── */
+#sub-plan-list .sub-plan-card { margin: 0 0 12px; }
+#sub-plan-list .sub-plan-card:last-child { margin-bottom: 0; }
+
+/* ── Chip filter scroll ──────────────────────────────────────── */
+.products-filter-row {
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.products-filter-row::-webkit-scrollbar { display: none; }
+.products-filter-row .chip { display: inline-flex; margin-right: 6px; }
+
+/* ── Home page additions ─────────────────────────────────────── */
+.home-zone-chip {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* ── white-30 / white-50 / white-60 / white-80 ──────────────── */
+.text-white-30 { color: rgba(255,255,255,0.3); }
