@@ -7,7 +7,14 @@
       "PowerShell(Start-Process \"C:\\\\Users\\\\silly\\\\Desktop\\\\waterboy-app\\\\customer.html\")",
       "PowerShell(Start-Process \"C:\\\\Users\\\\silly\\\\Desktop\\\\waterboy-delivery\\\\index.html\")",
       "PowerShell(Start-Process \"https://waterboysite.netlify.app\")",
-      "Bash(git remote *)"
+      "Bash(git remote *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\silly\\\\Desktop\\\\waterboy-app\" -Force)",
+      "Bash(Select-Object Name, Mode)",
+      "Bash(start *)",
+      "PowerShell(Start-Process \"C:\\\\Users\\\\silly\\\\Desktop\\\\elementary-website\\\\index.html\")",
+      "Bash(git branch *)",
+      "Bash(Start-Process *)",
+      "PowerShell(Start-Process \"C:\\\\Users\\\\silly\\\\Desktop\\\\waterboy-app\\\\driver.html\")"
     ]
   }
 }
