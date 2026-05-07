@@ -911,6 +911,14 @@ function openOrderDetail(orderId) {
     <div class="cart-summary-row"><span>Delivery</span><span>${fmtMoney(order.deliveryFee)}</span></div>
     ${order.discount ? `<div class="cart-summary-row discount"><span>Discount</span><span>-${fmtMoney(order.discount)}</span></div>` : ''}
     <div class="cart-summary-row total"><span>Total</span><span>${fmtMoney(order.total)}</span></div>
+    ${order.status === 'delivered' && order.deliveryPhoto ? `
+    <div class="divider"></div>
+    <div style="font-size:.9rem;font-weight:700;color:var(--success);margin-bottom:8px">Your delivery has been completed! ✓</div>
+    <div style="font-size:.8125rem;color:var(--white-50);margin-bottom:10px">Here's where we left your water:</div>
+    <img src="${order.deliveryPhoto}" style="width:100%;border-radius:var(--radius-md);margin-bottom:10px;display:block" />
+    <div style="font-size:.8125rem;color:var(--white-50);line-height:1.6">
+      ${[order.deliveryLocation ? '📍 ' + order.deliveryLocation : '', order.completedBy ? 'Driver: ' + order.completedBy : '', order.completedAt ? new Date(order.completedAt).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true}) : ''].filter(Boolean).join(' · ')}
+    </div>` : ''}
     ${order.status === 'delivered' && !order.rating ? `<button class="btn btn-secondary btn-full mt-16" onclick="rateOrder('${order.id}',5)">⭐ Rate this delivery</button>` : ''}`;
 
   Modal.open('order-detail-modal');

@@ -387,3 +387,18 @@
 .drv-vehicle-row:last-child { border-bottom: none; }
 .drv-vehicle-label { color: var(--white-40); }
 .drv-vehicle-val   { font-weight: 600; }
+
+/* ── Camera Delivery Flow ────────────────────────────────────── */
+#drv-camera-screen {
+  background: #000;
+}
+#cam-step-viewfinder video {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+#cam-capture-btn:active { transform: scale(0.92); }
+#cam-step-form::-webkit-scrollbar { display: none; }
+#cam-step-form { scrollbar-width: none; }

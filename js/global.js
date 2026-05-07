@@ -24,7 +24,7 @@ const WB = {
     blockedDates: 'wb_blocked_dates',
     rentals:      'wb_rentals',
     messages:     'wb_messages',
-    seeded:       'wb_seeded_v7',
+    seeded:       'wb_seeded_v8',
   },
   CREDS: {
     customer: { email: 'demo@waterboy.com',   password: 'water2026' },
@@ -467,23 +467,114 @@ const SEED = {
 };
 
 // ============================================================
+// DEMO PHOTO GENERATOR (canvas-based placeholder for seeding)
+// ============================================================
+function generateDemoPhoto(location, bottles) {
+  try {
+    const c = document.createElement('canvas');
+    c.width = 400; c.height = 280;
+    const ctx = c.getContext('2d');
+
+    // Sky gradient
+    const g = ctx.createLinearGradient(0, 0, 0, 190);
+    g.addColorStop(0, '#0A1628'); g.addColorStop(1, '#111D35');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 400, 190);
+
+    // Ground
+    ctx.fillStyle = '#1a2a3e'; ctx.fillRect(0, 185, 400, 95);
+
+    // Wall
+    ctx.fillStyle = '#1e3050'; ctx.fillRect(0, 40, 400, 155);
+
+    // Door frame
+    ctx.fillStyle = '#243860'; ctx.fillRect(155, 58, 92, 142);
+    ctx.fillStyle = '#1a2c4a'; ctx.fillRect(163, 66, 76, 128);
+
+    // Door panels
+    ctx.strokeStyle = '#2a4070'; ctx.lineWidth = 1.5;
+    ctx.strokeRect(168, 71, 66, 55);
+    ctx.strokeRect(168, 133, 66, 55);
+
+    // Doorknob
+    ctx.beginPath(); ctx.arc(231, 137, 5, 0, 2 * Math.PI);
+    ctx.fillStyle = '#00D4FF'; ctx.fill();
+
+    // Water bottles on the step
+    const n = Math.min(bottles || 2, 5);
+    const bw = 28, gap = 10;
+    const totalW = n * bw + (n - 1) * gap;
+    const sx = (400 - totalW) / 2;
+    for (let i = 0; i < n; i++) {
+      const x = sx + i * (bw + gap);
+      ctx.fillStyle = 'rgba(0,212,255,0.22)';
+      ctx.fillRect(x, 152, bw, 50);
+      ctx.strokeStyle = 'rgba(0,212,255,0.45)'; ctx.lineWidth = 1;
+      ctx.strokeRect(x, 152, bw, 50);
+      ctx.fillStyle = 'rgba(0,212,255,0.5)';
+      ctx.fillRect(x + 8, 144, 12, 12);
+      ctx.fillStyle = 'rgba(0,212,255,0.1)';
+      ctx.fillRect(x + 2, 172, 24, 26);
+    }
+
+    // Bottom caption bar
+    ctx.fillStyle = 'rgba(0,0,0,0.72)'; ctx.fillRect(0, 244, 400, 36);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(location, 200, 262);
+
+    // DEMO tag
+    ctx.fillStyle = 'rgba(0,212,255,0.15)'; ctx.fillRect(10, 10, 80, 20);
+    ctx.fillStyle = 'rgba(0,212,255,0.75)';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText('DEMO PHOTO', 16, 20);
+
+    return c.toDataURL('image/jpeg', 0.7);
+  } catch (e) { return null; }
+}
+
+// ============================================================
 // SEED INITIALIZER
 // ============================================================
 function seedData() {
   if (Store.get(WB.KEYS.seeded)) return;
 
-  Store.set(WB.KEYS.products,   SEED.products);
-  Store.set(WB.KEYS.zones,      SEED.zones);
-  Store.set(WB.KEYS.drivers,    SEED.drivers);
-  Store.set(WB.KEYS.promos,     SEED.promos);
-  Store.set(WB.KEYS.customers,  SEED.customers);
-  Store.set(WB.KEYS.orders,     SEED.buildOrders());
+  Store.set(WB.KEYS.products,      SEED.products);
+  Store.set(WB.KEYS.zones,         SEED.zones);
+  Store.set(WB.KEYS.drivers,       SEED.drivers);
+  Store.set(WB.KEYS.promos,        SEED.promos);
+  Store.set(WB.KEYS.customers,     SEED.customers);
+  Store.set(WB.KEYS.orders,        SEED.buildOrders());
+
+  // Patch demo delivery photos onto the 3 pre-seeded delivered orders
+  const _demos = [
+    { id:'ord_s007', location:'Front Door',    bottles:2, pickup:2, notes:'Left at front door per customer request.', driver:'Marcus Johnson',  hrsAgo:9.5 },
+    { id:'ord_s008', location:'With Customer', bottles:4, pickup:0, notes:'Handed directly to customer.',              driver:'Sofia Rodriguez', hrsAgo:8.5 },
+    { id:'ord_s009', location:'Side Gate',     bottles:2, pickup:1, notes:'Not home — left at side gate.',            driver:'Sofia Rodriguez', hrsAgo:7.5 },
+  ];
+  _demos.forEach(p => {
+    const photo = generateDemoPhoto(p.location, p.bottles);
+    if (!photo) return;
+    const ts = new Date(Date.now() - p.hrsAgo * 3600000).toISOString();
+    Store.updateItem(WB.KEYS.orders, p.id, {
+      deliveryPhoto:    photo,
+      photoTimestamp:   ts,
+      deliveryLocation: p.location,
+      bottlesDelivered: p.bottles,
+      bottlesPickedUp:  p.pickup,
+      deliveryNotes:    p.notes,
+      completedBy:      p.driver,
+      completedAt:      ts,
+    });
+  });
+
   Store.set(WB.KEYS.notifications, SEED.notifications);
-  Store.set(WB.KEYS.inventory,  SEED.inventory);
-  Store.set(WB.KEYS.settings,   SEED.settings);
-  Store.set(WB.KEYS.pickups,    []);
-  Store.set(WB.KEYS.rentals,   SEED.rentals);
-  Store.set(WB.KEYS.messages,  SEED.messages);
+  Store.set(WB.KEYS.inventory,     SEED.inventory);
+  Store.set(WB.KEYS.settings,      SEED.settings);
+  Store.set(WB.KEYS.pickups,       []);
+  Store.set(WB.KEYS.rentals,       SEED.rentals);
+  Store.set(WB.KEYS.messages,      SEED.messages);
 
   // Pre-block all Sundays for the next 6 months
   const blockedSundays = [];
@@ -494,7 +585,7 @@ function seedData() {
     sun.setDate(sun.getDate() + 7);
   }
   Store.set(WB.KEYS.blockedDates, blockedSundays);
-  Store.set(WB.KEYS.seeded,     true);
+  Store.set(WB.KEYS.seeded,       true);
 }
 
 // ============================================================

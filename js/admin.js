@@ -285,6 +285,11 @@ function renderOrdersPage() {
   tbody.innerHTML = paged.map(o => {
     const drv = o.driverId ? Store.findById(WB.KEYS.drivers, o.driverId) : null;
     const canCancel = !['delivered','cancelled'].includes(o.status);
+    const photoBtn = o.status === 'delivered'
+      ? (o.deliveryPhoto
+          ? `<button class="btn-icon" onclick="openPhotoLightbox('${o.id}')" title="View delivery photo" style="color:var(--cyan)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></button>`
+          : `<span title="No photo proof" style="color:var(--warning);display:inline-flex;align-items:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>`)
+      : '';
     return `<tr>
       <td><span class="mono text-xs" style="color:var(--cyan)">#${o.id.slice(-8).toUpperCase()}</span></td>
       <td>${o.customerName}</td>
@@ -295,6 +300,7 @@ function renderOrdersPage() {
       <td class="text-muted text-sm">${fmtDate(o.createdAt)}</td>
       <td>
         <div style="display:flex;gap:6px;align-items:center">
+          ${photoBtn}
           <button class="btn-icon" onclick="openAdminOrderModal('${o.id}')" title="View">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
           </button>
@@ -377,11 +383,51 @@ function openAdminOrderModal(orderId) {
     <div class="text-sm text-muted mb-8">Update Status</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       ${WB.ORDER_STATUSES.concat(['cancelled']).map(s => `<button class="btn btn-sm ${s===order.status?'btn-primary':'btn-secondary'}" onclick="updateOrderStatus('${order.id}','${s}');Modal.close('admin-order-modal')">${Orders.statusLabel(s)}</button>`).join('')}
-    </div>`;
+    </div>
+    ${order.status === 'delivered' ? `
+    <div class="divider"></div>
+    <div class="fw-600 mb-8" style="font-size:.9375rem">Delivery Proof</div>
+    ${order.deliveryPhoto ? `
+      <img src="${order.deliveryPhoto}" onclick="openPhotoLightbox('${order.id}')" style="width:100%;max-width:400px;border-radius:var(--radius-md);margin-bottom:12px;cursor:pointer;display:block" />
+      <div style="display:flex;flex-direction:column;gap:6px;font-size:.8125rem;margin-bottom:12px">
+        <div><span style="color:var(--white-40)">Time taken:</span> <span style="color:var(--white-80)">${order.photoTimestamp ? new Date(order.photoTimestamp).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true}) : '—'}</span></div>
+        <div><span style="color:var(--white-40)">Driver:</span> <span style="color:var(--white-80)">${order.completedBy || '—'}</span></div>
+        <div><span style="color:var(--white-40)">Drop-off location:</span> <span style="color:var(--white-80)">${order.deliveryLocation || '—'}</span></div>
+        <div><span style="color:var(--white-40)">Bottles delivered / picked up:</span> <span style="color:var(--white-80)">${order.bottlesDelivered ?? '—'} / ${order.bottlesPickedUp ?? '—'}</span></div>
+        ${order.deliveryNotes ? `<div><span style="color:var(--white-40)">Notes:</span> <span style="color:var(--white-80)">${order.deliveryNotes}</span></div>` : ''}
+      </div>
+      <button onclick="openPhotoLightbox('${order.id}')" class="btn btn-secondary btn-sm">View Full Size</button>
+    ` : `
+      <div style="display:flex;align-items:center;gap:8px;padding:12px 14px;background:rgba(234,179,8,0.07);border:1px solid rgba(234,179,8,0.2);border-radius:var(--radius-sm)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2" style="width:16px;height:16px;flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span style="font-size:.8125rem;color:var(--warning)">No photo proof for this delivery</span>
+      </div>
+    `}` : ''}`;
 
   Modal.open('admin-order-modal');
 }
 window.openAdminOrderModal = openAdminOrderModal;
+
+function openPhotoLightbox(orderId) {
+  const order = Orders.getById(orderId);
+  if (!order || !order.deliveryPhoto) return;
+  const existing = document.getElementById('wb-photo-lightbox');
+  if (existing) existing.remove();
+  const lb = document.createElement('div');
+  lb.id = 'wb-photo-lightbox';
+  lb.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;padding:20px;cursor:zoom-out';
+  lb.onclick = () => lb.remove();
+  lb.innerHTML = `
+    <div style="max-width:600px;width:100%;text-align:center" onclick="event.stopPropagation()">
+      <img src="${order.deliveryPhoto}" style="width:100%;border-radius:12px;box-shadow:0 0 50px rgba(0,0,0,0.9)" />
+      <div style="margin-top:12px;color:rgba(255,255,255,0.65);font-size:.8125rem">
+        ${[order.completedBy, order.deliveryLocation, order.photoTimestamp ? new Date(order.photoTimestamp).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true}) : ''].filter(Boolean).join(' · ')}
+      </div>
+      <button onclick="document.getElementById('wb-photo-lightbox').remove()" style="margin-top:14px;padding:9px 22px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);color:#fff;border-radius:8px;cursor:pointer;font-size:.875rem">Close</button>
+    </div>`;
+  document.body.appendChild(lb);
+}
+window.openPhotoLightbox = openPhotoLightbox;
 
 document.addEventListener('DOMContentLoaded', function () {
   const searchInput = document.getElementById('orders-search');

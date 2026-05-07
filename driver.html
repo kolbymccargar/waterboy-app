@@ -248,6 +248,99 @@
 
 </div>
 
+<!-- Camera Delivery Flow Screen -->
+<div id="drv-camera-screen" style="display:none;position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:400;flex-direction:column;overflow:hidden">
+
+  <!-- Step 1: Permission Pre-Prompt -->
+  <div id="cam-step-permission" style="display:flex;flex:1;flex-direction:column;align-items:center;justify-content:center;padding:36px 28px;text-align:center;gap:18px;background:var(--blue-deep)">
+    <div style="width:80px;height:80px;border-radius:50%;background:rgba(0,212,255,0.1);border:2px solid rgba(0,212,255,0.25);display:flex;align-items:center;justify-content:center">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="1.5" style="width:38px;height:38px"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+    </div>
+    <div>
+      <div style="font-family:var(--font-head);font-size:1.375rem;font-weight:800;color:var(--white-90);margin-bottom:10px">Take Delivery Photo</div>
+      <div style="font-size:.9375rem;color:var(--white-70);line-height:1.6;margin-bottom:10px">Waterboy needs access to your camera to take delivery confirmation photos.</div>
+      <div style="font-size:.8125rem;color:var(--white-40);line-height:1.5">This photo proves the delivery was completed and protects you and the customer.</div>
+    </div>
+    <button onclick="startCamera()" class="btn btn-full btn-lg" style="background:var(--cyan);color:#000;font-weight:700;margin-top:8px">Allow Camera</button>
+    <button onclick="closeCameraFlow()" class="btn btn-secondary btn-full">Cancel</button>
+  </div>
+
+  <!-- Step 2: Camera Viewfinder -->
+  <div id="cam-step-viewfinder" style="display:none;flex:1;position:relative;background:#000;overflow:hidden">
+    <div style="position:absolute;top:0;left:0;right:0;z-index:10;padding:14px 16px;background:linear-gradient(to bottom,rgba(0,0,0,0.75),transparent);display:flex;align-items:center;justify-content:space-between">
+      <button onclick="closeCameraFlow()" style="background:rgba(0,0,0,0.45);border:none;color:#fff;font-size:.875rem;cursor:pointer;padding:8px 14px;border-radius:8px;font-family:var(--font-body)">Cancel</button>
+      <div style="color:#fff;font-size:.875rem;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,0.8)">Take a photo of the delivery</div>
+      <div style="width:70px"></div>
+    </div>
+    <video id="cam-video" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;display:block"></video>
+    <div id="cam-error-msg" style="display:none;position:absolute;inset:0;background:var(--blue-deep);flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;gap:16px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--white-40)" stroke-width="1.5" style="width:56px;height:56px"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+      <div style="color:var(--white-90);font-size:1rem;font-weight:700">Camera Access Required</div>
+      <div style="color:var(--white-50);font-size:.875rem;line-height:1.6">Please allow camera access in your browser settings to take delivery photos.</div>
+      <button onclick="closeCameraFlow()" class="btn btn-secondary" style="margin-top:4px">Cancel</button>
+      <button onclick="skipPhoto()" class="btn btn-ghost btn-sm" style="color:var(--warning)">Skip Photo (Not Recommended)</button>
+    </div>
+    <div style="position:absolute;bottom:0;left:0;right:0;z-index:10;padding:24px 24px 44px;background:linear-gradient(to top,rgba(0,0,0,0.72),transparent);display:flex;align-items:center;justify-content:center">
+      <button id="cam-capture-btn" onclick="capturePhoto()" style="width:70px;height:70px;border-radius:50%;background:#fff;border:3px solid var(--cyan);cursor:pointer;box-shadow:0 0 28px rgba(0,212,255,0.55);transition:transform .1s;flex-shrink:0"></button>
+    </div>
+  </div>
+
+  <!-- Step 3: Photo Review -->
+  <div id="cam-step-review" style="display:none;flex:1;position:relative;background:#000;overflow:hidden">
+    <div style="position:absolute;top:0;left:0;right:0;z-index:10;padding:20px;background:linear-gradient(to bottom,rgba(0,0,0,0.75),transparent);text-align:center">
+      <div style="color:#fff;font-size:.9375rem;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,0.9)">Does this photo clearly show the delivery?</div>
+    </div>
+    <img id="cam-review-img" src="" alt="Delivery preview" style="width:100%;height:100%;object-fit:cover;display:block" />
+    <div style="position:absolute;bottom:0;left:0;right:0;z-index:10;padding:16px 20px 40px;background:linear-gradient(to top,rgba(0,0,0,0.82),transparent);display:flex;gap:12px">
+      <button onclick="retakePhoto()" class="btn flex-1" style="background:rgba(15,25,45,0.85);border:1px solid rgba(255,255,255,0.22);color:#fff;backdrop-filter:blur(4px)">Retake</button>
+      <button onclick="acceptPhoto()" class="btn flex-1" style="background:var(--cyan);color:#000;font-weight:700;box-shadow:0 0 20px rgba(0,212,255,0.4)">Use This Photo</button>
+    </div>
+  </div>
+
+  <!-- Step 4: Delivery Form -->
+  <div id="cam-step-form" style="display:none;flex:1;flex-direction:column;overflow-y:auto;background:var(--blue-deep)">
+    <div style="position:sticky;top:0;z-index:10;padding:14px 20px;background:rgba(10,22,40,0.95);backdrop-filter:blur(16px);border-bottom:1px solid var(--blue-border);display:flex;align-items:center;gap:12px">
+      <button onclick="closeCameraFlow()" style="background:none;border:none;color:var(--white-60);cursor:pointer;padding:4px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:20px;height:20px"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div style="font-weight:700;font-size:1rem;color:var(--white-90)">Confirm Delivery</div>
+    </div>
+    <div style="padding:16px">
+      <img id="cam-form-thumb" src="" alt="Delivery photo" style="width:100%;height:180px;object-fit:cover;border-radius:var(--radius-md);border:1px solid var(--blue-border)" />
+    </div>
+    <div style="padding:0 16px 16px;display:flex;flex-direction:column;gap:14px">
+      <div class="form-group">
+        <label class="form-label">Bottles Delivered</label>
+        <input id="cam-bottles-delivered" type="number" class="form-input" value="0" min="0" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Empty Bottles Picked Up</label>
+        <input id="cam-bottles-pickup" type="number" class="form-input" value="0" min="0" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Where did you leave it?</label>
+        <select id="cam-location" class="form-input">
+          <option value="Front Door">Front Door</option>
+          <option value="Side Gate">Side Gate</option>
+          <option value="Garage">Garage</option>
+          <option value="Back Porch">Back Porch</option>
+          <option value="Office Lobby">Office Lobby</option>
+          <option value="With Customer">With Customer</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Delivery Notes <span style="color:var(--white-40);font-weight:400">(optional)</span></label>
+        <textarea id="cam-notes" class="form-input" rows="3" placeholder="Any notes about this delivery…" style="resize:none"></textarea>
+      </div>
+      <button onclick="confirmDelivery()" class="btn btn-full btn-lg" style="background:var(--success);color:#fff;font-weight:700;margin-top:4px">✓ Confirm Delivery</button>
+      <button onclick="skipPhoto()" class="btn btn-ghost btn-full btn-sm" style="color:var(--warning);margin-top:-4px">Skip Photo (Not Recommended)</button>
+    </div>
+    <div style="height:40px"></div>
+  </div>
+
+</div>
+
 <!-- Complete Delivery Modal -->
 <div id="stop-detail-modal" class="modal-overlay">
   <div class="modal" style="max-width:520px">

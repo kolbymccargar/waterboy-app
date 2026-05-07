@@ -194,12 +194,15 @@ function renderStopList(orders) {
           <a href="${mapsUrl}" target="_blank" class="btn btn-secondary btn-sm flex-1" style="text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>Navigate
           </a>
-          <button class="btn btn-primary btn-sm flex-1" onclick="event.stopPropagation();openCompleteModal('${order.id}')">✓ Complete</button>
+          <button class="btn btn-primary btn-sm flex-1" onclick="event.stopPropagation();openCameraFlow('${order.id}')">📷 Complete</button>
           <button class="btn btn-sm" style="background:rgba(239,68,68,0.12);color:var(--danger);border:1px solid rgba(239,68,68,0.25)" onclick="event.stopPropagation();markMissed('${order.id}')">Missed</button>
         </div>
         <button class="btn btn-secondary btn-sm btn-full" style="margin-top:8px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:var(--success)" onclick="event.stopPropagation();openDrvChat('${order.id}')">💬 Message Customer</button>` : isDone ? `
-        <div style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:.8125rem;color:var(--success);font-weight:600">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><polyline points="20 6 9 17 4 12"/></svg>Delivery completed
+        <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
+          <div style="display:flex;align-items:center;gap:6px;font-size:.8125rem;color:var(--success);font-weight:600">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><polyline points="20 6 9 17 4 12"/></svg>Delivery completed
+          </div>
+          ${order.deliveryPhoto ? `<button onclick="event.stopPropagation();viewDeliveryPhoto('${order.id}')" style="margin-left:auto;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.22);border-radius:8px;padding:4px 10px;cursor:pointer;display:flex;align-items:center;gap:5px;font-size:.75rem;color:var(--cyan)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>Photo</button>` : `<span style="margin-left:auto;font-size:.7rem;color:var(--warning)">No photo</span>`}
         </div>` : ''}
       </div>`;
   }).join('');
@@ -397,46 +400,225 @@ function markMissed(orderId) {
 window.markMissed = markMissed;
 
 // ============================================================
-// COMPLETE DELIVERY MODAL
+// CAMERA DELIVERY FLOW
 // ============================================================
-function openCompleteModal(orderId) {
-  selectedStop = orderId;
+let _cameraStream = null;
+let _capturedPhoto = null;
+let _photoOrderId = null;
+
+function showCamStep(step) {
+  ['permission','viewfinder','review','form'].forEach(s => {
+    const el = document.getElementById('cam-step-' + s);
+    if (!el) return;
+    el.style.display = (s === step) ? 'flex' : 'none';
+  });
+}
+
+function openCameraFlow(orderId) {
+  _photoOrderId = orderId;
+  _capturedPhoto = null;
+  _cameraStream = null;
+
+  const screen = document.getElementById('drv-camera-screen');
+  if (screen) screen.style.display = 'flex';
+  showCamStep('permission');
+}
+window.openCameraFlow = openCameraFlow;
+
+function closeCameraFlow() {
+  stopCameraStream();
+  const screen = document.getElementById('drv-camera-screen');
+  if (screen) screen.style.display = 'none';
+  _photoOrderId = null;
+  _capturedPhoto = null;
+}
+window.closeCameraFlow = closeCameraFlow;
+
+async function startCamera() {
+  showCamStep('viewfinder');
+  const errEl = document.getElementById('cam-error-msg');
+  if (errEl) errEl.style.display = 'none';
+
+  const video = document.getElementById('cam-video');
+  if (!video) return;
+
+  try {
+    _cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+    });
+    video.srcObject = _cameraStream;
+    video.play();
+  } catch (err) {
+    // Camera denied or unavailable — show error state
+    if (errEl) errEl.style.display = 'flex';
+  }
+}
+window.startCamera = startCamera;
+
+function stopCameraStream() {
+  const video = document.getElementById('cam-video');
+  if (video) { video.srcObject = null; }
+  if (_cameraStream) {
+    _cameraStream.getTracks().forEach(t => t.stop());
+    _cameraStream = null;
+  }
+}
+
+function capturePhoto() {
+  const video = document.getElementById('cam-video');
+  if (!video) return;
+  const canvas = document.createElement('canvas');
+  canvas.width  = video.videoWidth  || 1280;
+  canvas.height = video.videoHeight || 720;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  _capturedPhoto = canvas.toDataURL('image/jpeg', 0.7);
+  stopCameraStream();
+
+  const reviewImg = document.getElementById('cam-review-img');
+  if (reviewImg) reviewImg.src = _capturedPhoto;
+  showCamStep('review');
+}
+window.capturePhoto = capturePhoto;
+
+function retakePhoto() {
+  _capturedPhoto = null;
+  startCamera();
+}
+window.retakePhoto = retakePhoto;
+
+function acceptPhoto() {
+  const thumb = document.getElementById('cam-form-thumb');
+  if (thumb) thumb.src = _capturedPhoto;
+
+  // Pre-fill bottles delivered from the order
+  if (_photoOrderId) {
+    const order = Orders.getById(_photoOrderId);
+    if (order) {
+      const qty = order.items.reduce((s, i) => s + i.qty, 0);
+      const delInput = document.getElementById('cam-bottles-delivered');
+      if (delInput) delInput.value = qty;
+    }
+  }
+
+  // Clear previous notes
+  const notesEl = document.getElementById('cam-notes');
+  if (notesEl) notesEl.value = '';
+  const pickupEl = document.getElementById('cam-bottles-pickup');
+  if (pickupEl) pickupEl.value = '0';
+
+  showCamStep('form');
+}
+window.acceptPhoto = acceptPhoto;
+
+function confirmDelivery() {
+  if (!_photoOrderId) return;
+  const order = Orders.getById(_photoOrderId);
+  if (!order) return;
+
+  const deliveryLocation  = (document.getElementById('cam-location')?.value)          || 'Front Door';
+  const bottlesDelivered  = parseInt(document.getElementById('cam-bottles-delivered')?.value) || 0;
+  const bottlesPickedUp   = parseInt(document.getElementById('cam-bottles-pickup')?.value)    || 0;
+  const notes             = (document.getElementById('cam-notes')?.value || '').trim();
+  const now               = new Date().toISOString();
+
+  Orders.updateStatus(_photoOrderId, 'delivered');
+  Store.updateItem(WB.KEYS.orders, _photoOrderId, {
+    deliveryPhoto:    _capturedPhoto,
+    photoTimestamp:   now,
+    deliveryLocation,
+    bottlesDelivered,
+    bottlesPickedUp,
+    deliveryNotes:    notes,
+    completedBy:      currentDriver ? currentDriver.name : 'Driver',
+    completedAt:      now,
+  });
+
+  if (currentDriver) {
+    Store.updateItem(WB.KEYS.drivers, currentDriver.id, {
+      deliveriesToday: (currentDriver.deliveriesToday || 0) + 1,
+      deliveriesTotal: (currentDriver.deliveriesTotal || 0) + 1,
+    });
+    currentDriver = Store.findById(WB.KEYS.drivers, currentDriver.id);
+  }
+
+  Notifs.push(order.customerId, 'order_update', 'Order Delivered! ✓', 'Your water has arrived. Tap to see your delivery photo!', _photoOrderId);
+
+  closeCameraFlow();
+  Toast.success('Delivery confirmed! ✓', 'Photo saved with delivery record.');
+  renderRoute();
+}
+window.confirmDelivery = confirmDelivery;
+
+function skipPhoto() {
+  if (!confirm('Skipping photo proof is not recommended. Your admin will be notified. Continue?')) return;
+  if (!_photoOrderId) return;
+  const order = Orders.getById(_photoOrderId);
+  if (!order) return;
+
+  const now = new Date().toISOString();
+  Orders.updateStatus(_photoOrderId, 'delivered');
+  Store.updateItem(WB.KEYS.orders, _photoOrderId, {
+    deliveryPhoto:  null,
+    noPhotoFlag:    true,
+    completedBy:    currentDriver ? currentDriver.name : 'Driver',
+    completedAt:    now,
+  });
+
+  if (currentDriver) {
+    Store.updateItem(WB.KEYS.drivers, currentDriver.id, {
+      deliveriesToday: (currentDriver.deliveriesToday || 0) + 1,
+      deliveriesTotal: (currentDriver.deliveriesTotal || 0) + 1,
+    });
+    currentDriver = Store.findById(WB.KEYS.drivers, currentDriver.id);
+  }
+
+  Notifs.push(order.customerId, 'order_update', 'Order Delivered! ✓', 'Your water has been delivered.', _photoOrderId);
+
+  closeCameraFlow();
+  Toast.warning('Delivery confirmed (no photo)', 'Admin has been notified.');
+  renderRoute();
+}
+window.skipPhoto = skipPhoto;
+
+// ============================================================
+// VIEW DELIVERY PHOTO (driver side — in stop-detail-modal)
+// ============================================================
+function viewDeliveryPhoto(orderId) {
   const order = Orders.getById(orderId);
   if (!order) return;
 
   const titleEl = document.getElementById('stop-modal-title');
-  if (titleEl) titleEl.textContent = 'Complete Delivery';
+  if (titleEl) titleEl.textContent = 'Delivery Proof';
 
-  const cust = Store.findById(WB.KEYS.customers, order.customerId);
-  const returnBottles = cust?.bottles || 0;
   const body = document.getElementById('stop-detail-body');
   if (!body) return;
 
+  const ts = order.completedAt
+    ? new Date(order.completedAt).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit', hour12:true })
+    : '—';
+
   body.innerHTML = `
-    <div class="delivery-detail-addr">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-      <div>
-        <div style="font-weight:700;font-size:.9375rem">${order.customerName}</div>
-        <div style="color:var(--white-40);font-size:.875rem;margin-top:3px">${order.customerAddress}</div>
-        ${cust?.phone ? `<div style="color:var(--cyan);font-size:.8125rem;margin-top:4px">${cust.phone}</div>` : ''}
-      </div>
-    </div>
-    <div style="font-size:.875rem;font-weight:700;margin-bottom:10px">Items Delivered</div>
-    ${order.items.map(i => `<div class="bottle-return-row"><span class="bottle-return-label">${i.productName}</span><span class="fw-600">${i.qty} bottles</span></div>`).join('')}
-    <div class="bottle-return-row" style="border-top:1px solid var(--blue-border);margin-top:4px;padding-top:12px">
-      <span class="bottle-return-label" style="color:var(--warning)">⬆ Bottles Picked Up</span>
-      <div class="qty-stepper" style="scale:.9">
-        <button class="qty-btn" onclick="adjustReturn(-1)">−</button>
-        <span class="qty-val" id="return-qty">${returnBottles}</span>
-        <button class="qty-btn" onclick="adjustReturn(1)">+</button>
-      </div>
-    </div>
-    <div style="display:flex;gap:10px;margin-top:20px">
-      <button class="btn btn-primary flex-1" onclick="markDelivered('${order.id}')">✓ Mark Complete</button>
-      <button class="btn btn-ghost" onclick="Modal.close('stop-detail-modal')">Cancel</button>
-    </div>`;
+    ${order.deliveryPhoto
+      ? `<img src="${order.deliveryPhoto}" style="width:100%;border-radius:var(--radius-md);margin-bottom:14px" />`
+      : `<div style="height:120px;background:var(--blue-card);border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;color:var(--white-40);font-size:.875rem;margin-bottom:14px">No photo</div>`}
+    <div class="bottle-return-row"><span class="bottle-return-label">Location</span><span class="fw-600">${order.deliveryLocation || '—'}</span></div>
+    <div class="bottle-return-row"><span class="bottle-return-label">Driver</span><span class="fw-600">${order.completedBy || '—'}</span></div>
+    <div class="bottle-return-row"><span class="bottle-return-label">Time</span><span class="fw-600">${ts}</span></div>
+    <div class="bottle-return-row"><span class="bottle-return-label">Bottles Delivered</span><span class="fw-600">${order.bottlesDelivered ?? '—'}</span></div>
+    <div class="bottle-return-row" style="border-bottom:none"><span class="bottle-return-label">Bottles Picked Up</span><span class="fw-600">${order.bottlesPickedUp ?? '—'}</span></div>
+    ${order.deliveryNotes ? `<div style="margin-top:12px;padding:10px;background:var(--blue-card);border:1px solid var(--blue-border);border-radius:var(--radius-sm);font-size:.8125rem;color:var(--white-70)">${order.deliveryNotes}</div>` : ''}
+    <button class="btn btn-ghost btn-full" style="margin-top:16px" onclick="Modal.close('stop-detail-modal')">Close</button>
+  `;
 
   Modal.open('stop-detail-modal');
+}
+window.viewDeliveryPhoto = viewDeliveryPhoto;
+
+// ============================================================
+// LEGACY: openCompleteModal — now uses camera flow
+// ============================================================
+function openCompleteModal(orderId) {
+  openCameraFlow(orderId);
 }
 window.openCompleteModal = openCompleteModal;
 
