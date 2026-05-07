@@ -256,6 +256,7 @@ function navigateTo(page) {
   const titleMap = {
     home: 'Home', products: 'Products', cart: 'Cart',
     orders: 'Orders', bottles: 'My Bottles', account: 'Account',
+    rentals: 'Rent a Dispenser',
   };
   const headerTitle = document.getElementById('cust-page-title');
   if (headerTitle) headerTitle.textContent = titleMap[page] || '';
@@ -263,6 +264,7 @@ function navigateTo(page) {
   const renderers = {
     home: renderHome, products: renderProducts, cart: renderCart,
     orders: renderOrders, bottles: renderBottles, account: renderAccount,
+    rentals: renderRentals,
   };
   if (renderers[page]) renderers[page]();
 }
@@ -866,8 +868,13 @@ function renderOrders() {
     return;
   }
 
+  const activeDriverStatuses = ['driver_assigned','out_for_delivery','preparing'];
   listEl.innerHTML = showing.map(order => {
     const itemStr = order.items.map(i => `${i.qty}× ${i.productName}`).join(', ');
+    const hasDriver = activeDriverStatuses.includes(order.status) && order.driverId;
+    const contactBtn = hasDriver
+      ? `<button class="btn btn-secondary btn-sm" style="margin-top:10px;width:100%;background:rgba(0,212,255,.12);border:1px solid var(--cyan);color:var(--cyan)" onclick="event.stopPropagation();openChatScreen('${order.id}')">💬 Contact Driver</button>`
+      : '';
     return `<div class="order-card" onclick="openOrderDetail('${order.id}')">
       <div class="order-card-head">
         <span class="order-card-id">#${order.id.slice(-8).toUpperCase()}</span>
@@ -878,6 +885,7 @@ function renderOrders() {
         <span class="order-card-total">${fmtMoney(order.total)}</span>
         <span class="order-card-date">${fmtDate(order.createdAt)}</span>
       </div>
+      ${contactBtn}
     </div>`;
   }).join('');
 }
@@ -1053,6 +1061,7 @@ function openSubScreen(id) {
   if (id === 'acct-payment')  renderSavedCards();
   if (id === 'acct-subscription') renderSubPlanScreen();
   if (id === 'acct-settings') loadSettingsScreen();
+  if (id === 'acct-rentals')  renderAcctRentals();
 
   el.classList.add('open');
 }
@@ -2119,3 +2128,491 @@ window.selectPlanFromDetail = selectPlanFromDetail;
     }
   });
 }());
+
+// ============================================================
+// RENTALS PAGE
+// ============================================================
+let rfStep          = 1;
+let rfSelectedModel = null;
+let rfSelectedTier  = null;
+
+function renderRentals() {
+  const el = document.getElementById('rentals-list');
+  if (!el) return;
+
+  el.innerHTML = Object.values(RENTAL_PLANS).map(plan => {
+    const bestTier = plan.tiers.find(t => t.bestValue);
+    return `<div class="product-card" style="cursor:pointer" onclick="openRentalFlow('${plan.id}')">
+      <div class="product-card-img-wrap">
+        <img src="${plan.image}" alt="${plan.name}" style="width:100%;height:140px;object-fit:cover;border-radius:10px 10px 0 0">
+      </div>
+      <div class="product-card-body">
+        <div class="product-card-name">${plan.name}</div>
+        <div class="product-card-desc" style="font-size:.8rem;color:var(--white-60);margin-bottom:8px">${plan.desc}</div>
+        <div style="font-size:.8rem;color:var(--cyan)">From ${fmtMoney(bestTier.price)}/mo</div>
+        <div style="font-size:.75rem;color:var(--white-40);margin-top:2px">Retail value: ${fmtMoney(plan.retailPrice)}</div>
+        <button class="btn btn-primary btn-full" style="margin-top:12px">Rent Now</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+window.renderRentals = renderRentals;
+
+function openRentalFlow(modelId) {
+  rfStep          = 1;
+  rfSelectedModel = modelId || null;
+  rfSelectedTier  = null;
+
+  const flow = document.getElementById('rental-flow');
+  if (flow) { flow.style.display = 'flex'; flow.style.flexDirection = 'column'; }
+  document.body.style.overflow = 'hidden';
+
+  goToRfStep(1);
+
+  if (modelId) {
+    rfSelectModel(modelId);
+    goToRfStep(2);
+  }
+}
+window.openRentalFlow = openRentalFlow;
+
+function closeRentalFlow() {
+  const flow = document.getElementById('rental-flow');
+  if (flow) flow.style.display = 'none';
+  document.body.style.overflow = '';
+}
+window.closeRentalFlow = closeRentalFlow;
+
+function goToRfStep(n) {
+  rfStep = n;
+  for (let i = 1; i <= 5; i++) {
+    const el = document.getElementById('rf-step-' + i);
+    if (el) el.style.display = i === n ? 'flex' : 'none';
+    const dot = document.getElementById('rf-dot-' + i);
+    if (dot) {
+      dot.classList.remove('active','done');
+      if (i < n) dot.classList.add('done');
+      else if (i === n) dot.classList.add('active');
+    }
+  }
+
+  const backBtn = document.getElementById('rf-back-btn');
+  if (backBtn) backBtn.style.visibility = n > 1 && n < 5 ? 'visible' : 'hidden';
+
+  if (n === 1) renderRfModelCards();
+  if (n === 2) { renderRfTierCards(); renderRfPriceSummary(); }
+  if (n === 4) renderRfOrderSummary();
+
+  updateRfNextBtn();
+}
+
+function renderRfModelCards() {
+  const el = document.getElementById('rf-dispenser-cards');
+  if (!el) return;
+  el.innerHTML = Object.values(RENTAL_PLANS).map(plan => {
+    const selected = rfSelectedModel === plan.id;
+    return `<div class="rf-model-card ${selected ? 'selected' : ''}" onclick="rfSelectModel('${plan.id}')" style="border:2px solid ${selected ? 'var(--cyan)' : 'var(--border)'};border-radius:14px;padding:16px;cursor:pointer;margin-bottom:12px;background:var(--card-bg)">
+      <div style="font-weight:600;color:var(--white-90)">${plan.name}</div>
+      <div style="font-size:.8rem;color:var(--white-60);margin-top:4px">${plan.desc}</div>
+      <div style="font-size:.8rem;color:var(--cyan);margin-top:6px">From ${fmtMoney(plan.tiers.find(t=>t.bestValue).price)}/mo</div>
+    </div>`;
+  }).join('');
+}
+
+function renderRfTierCards() {
+  const el = document.getElementById('rf-tier-cards');
+  if (!el || !rfSelectedModel) return;
+  const plan = RENTAL_PLANS[rfSelectedModel];
+  if (!plan) return;
+
+  const nameEl  = document.getElementById('rf-model-name');
+  const imgEl   = document.getElementById('rf-model-img');
+  const retailEl = document.getElementById('rf-retail-price');
+  if (nameEl)   nameEl.textContent  = plan.name;
+  if (imgEl)    imgEl.src           = plan.image;
+  if (retailEl) retailEl.textContent = fmtMoney(plan.retailPrice);
+
+  el.innerHTML = plan.tiers.map(tier => {
+    const selected = rfSelectedTier === tier.months;
+    return `<div class="rf-tier-card ${selected ? 'selected' : ''}" onclick="rfSelectTier(${tier.months})" style="border:2px solid ${selected ? 'var(--cyan)' : 'var(--border)'};border-radius:14px;padding:14px 16px;cursor:pointer;margin-bottom:10px;background:var(--card-bg);position:relative">
+      ${tier.bestValue ? '<span style="position:absolute;top:10px;right:12px;font-size:.7rem;background:var(--cyan);color:#000;padding:2px 8px;border-radius:20px;font-weight:700">BEST VALUE</span>' : ''}
+      <div style="font-weight:600;color:var(--white-90)">${tier.label}</div>
+      <div style="font-size:1.1rem;color:var(--cyan);margin-top:2px">${fmtMoney(tier.price)}<span style="font-size:.8rem;color:var(--white-60)">/mo</span></div>
+      <div style="font-size:.75rem;color:var(--white-40);margin-top:2px">Total: ${fmtMoney(tier.totalCost)}${tier.savings ? ` · Save ${fmtMoney(tier.savings)}` : ''}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderRfOrderSummary() {
+  if (!rfSelectedModel || rfSelectedTier === null) return;
+  const plan = RENTAL_PLANS[rfSelectedModel];
+  const tier = plan && plan.tiers.find(t => t.months === rfSelectedTier);
+  if (!plan || !tier) return;
+
+  const summaryEl = document.getElementById('rf-order-summary');
+  if (summaryEl) {
+    summaryEl.innerHTML = `
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>${plan.name}</span><span style="color:var(--cyan)">${fmtMoney(tier.price)}/mo</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--white-50)">Duration</span><span>${tier.label}</span></div>
+      <div style="display:flex;justify-content:space-between;border-top:1px solid var(--blue-border);padding-top:8px;margin-top:4px;font-weight:600"><span>Due Today</span><span style="color:var(--cyan)">${fmtMoney(tier.price)}</span></div>`;
+  }
+
+  const rfPayBtn = document.getElementById('rf-pay-btn');
+  if (rfPayBtn) {
+    rfPayBtn.disabled = false;
+    rfPayBtn.textContent = `Start Rental — Pay ${fmtMoney(tier.price)}`;
+  }
+}
+
+function rfSelectModel(modelId) {
+  rfSelectedModel = modelId;
+  renderRfModelCards();
+  updateRfNextBtn();
+}
+window.rfSelectModel = rfSelectModel;
+
+function rfSelectTier(months) {
+  rfSelectedTier = months;
+  renderRfTierCards();
+  renderRfPriceSummary();
+  updateRfNextBtn();
+}
+window.rfSelectTier = rfSelectTier;
+
+function renderRfPriceSummary() {
+  if (!rfSelectedModel || rfSelectedTier === null) return;
+  const plan = RENTAL_PLANS[rfSelectedModel];
+  const tier = plan && plan.tiers.find(t => t.months === rfSelectedTier);
+  if (!plan || !tier) return;
+  const monthlyEl = document.getElementById('rf-monthly-display');
+  const totalEl   = document.getElementById('rf-total-display');
+  if (monthlyEl) monthlyEl.textContent = fmtMoney(tier.price) + '/mo';
+  if (totalEl)   totalEl.textContent   = fmtMoney(tier.totalCost);
+}
+
+function updateRfNextBtn() {
+  const next1 = document.getElementById('rf-next-1');
+  const next2 = document.getElementById('rf-next-2');
+  const next3 = document.getElementById('rf-next-3');
+  if (next1) next1.disabled = !rfSelectedModel;
+  if (next2) next2.disabled = rfSelectedTier === null;
+  const agreeChk = document.getElementById('rf-agree-checkbox');
+  if (next3) next3.disabled = !(agreeChk && agreeChk.checked);
+}
+window.updateRfNextBtn = updateRfNextBtn;
+
+function rfGoTo(n) { goToRfStep(n); }
+window.rfGoTo = rfGoTo;
+
+function rfNext() {
+  if (rfStep === 1) {
+    if (!rfSelectedModel) { Toast.warning('Select a Dispenser', 'Choose a dispenser to continue.'); return; }
+    goToRfStep(2);
+  } else if (rfStep === 2) {
+    if (rfSelectedTier === null) { Toast.warning('Select a Duration', 'Choose a rental duration to continue.'); return; }
+    goToRfStep(3);
+  } else if (rfStep === 3) {
+    const agreeChk = document.getElementById('rf-agree-checkbox');
+    if (!agreeChk || !agreeChk.checked) { Toast.warning('Agreement Required', 'Please read and accept the rental agreement.'); return; }
+    goToRfStep(4);
+  }
+}
+window.rfNext = rfNext;
+
+function rfBack() {
+  if (rfStep > 1 && rfStep < 5) goToRfStep(rfStep - 1);
+}
+window.rfBack = rfBack;
+
+function rfProcessPayment() {
+  const cardNum  = document.getElementById('rf-card-num')?.value.replace(/\s/g,'');
+  const cardExp  = document.getElementById('rf-card-exp')?.value;
+  const cardCvv  = document.getElementById('rf-card-cvv')?.value;
+
+  if (!cardNum || cardNum.length < 13) { Toast.error('Invalid Card', 'Please enter a valid card number.'); return; }
+  if (!cardExp || cardExp.length < 5)  { Toast.error('Invalid Expiry', 'Please enter a valid expiry date.'); return; }
+  if (!cardCvv || cardCvv.length < 3)  { Toast.error('Invalid CVV', 'Please enter your CVV.'); return; }
+
+  const btn = document.getElementById('rf-pay-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Processing…'; }
+  setTimeout(() => rfStartRental(), 1500);
+}
+window.rfProcessPayment = rfProcessPayment;
+
+function rfStartRental() {
+  if (!currentCustomer || !rfSelectedModel || rfSelectedTier === null) return;
+  const plan = RENTAL_PLANS[rfSelectedModel];
+  const tier = plan && plan.tiers.find(t => t.months === rfSelectedTier);
+  if (!plan || !tier) return;
+
+  const now     = Date.now();
+  const endDate = now + tier.months * 30 * 24 * 60 * 60 * 1000;
+  const rental  = {
+    id:          uid('rent'),
+    customerId:  currentCustomer.id,
+    customerName: currentCustomer.name,
+    modelId:     plan.id,
+    modelName:   plan.name,
+    months:      tier.months,
+    monthlyPrice: tier.price,
+    totalCost:   tier.totalCost,
+    status:      'active',
+    startDate:   now,
+    endDate:     endDate,
+    nextBilling: now + 30 * 24 * 60 * 60 * 1000,
+  };
+
+  Store.push(WB.KEYS.rentals, rental);
+  Notifs.push(currentCustomer.id, 'rental', 'Rental Confirmed!', `Your ${plan.name} rental starts today.`);
+
+  const detEl = document.getElementById('rf-confirm-details');
+  if (detEl) {
+    detEl.innerHTML = `<strong>Dispenser:</strong> ${plan.name}<br>
+      <strong>Duration:</strong> ${tier.label}<br>
+      <strong>Monthly:</strong> ${fmtMoney(tier.price)}<br>
+      <strong>Rental ID:</strong> #${rental.id.slice(-8).toUpperCase()}`;
+  }
+
+  goToRfStep(5);
+}
+window.rfStartRental = rfStartRental;
+
+function renderAcctRentals() {
+  const el = document.getElementById('acct-rentals-body');
+  if (!el || !currentCustomer) return;
+
+  const rentals = Store.getList(WB.KEYS.rentals).filter(r => r.customerId === currentCustomer.id);
+  if (!rentals.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🚰</div><div class="empty-state-title">No active rentals</div><div class="empty-state-sub">Rent a dispenser to see it here.</div></div>
+      <button class="btn btn-primary btn-full" style="margin-top:16px" onclick="closeSubScreen('acct-rentals');navigateTo('rentals')">Browse Dispensers</button>`;
+    return;
+  }
+
+  el.innerHTML = rentals.map(r => {
+    const endDate = new Date(r.endDate).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'});
+    const statusColor = r.status === 'active' ? 'var(--cyan)' : r.status === 'ended' ? 'var(--white-40)' : '#f59e0b';
+    return `<div style="background:var(--card-bg);border-radius:14px;padding:16px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div style="font-weight:600;color:var(--white-90)">${r.modelName}</div>
+          <div style="font-size:.8rem;color:var(--white-60);margin-top:2px">${fmtMoney(r.monthlyPrice)}/mo · ${r.months} month${r.months > 1 ? 's' : ''}</div>
+        </div>
+        <span style="font-size:.75rem;color:${statusColor};text-transform:uppercase;font-weight:700">${r.status}</span>
+      </div>
+      <div style="font-size:.8rem;color:var(--white-40);margin-top:6px">Ends ${endDate}</div>
+      ${r.status === 'active' ? `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+        <button class="btn btn-secondary btn-sm" onclick="rentalExtend('${r.id}')">Extend</button>
+        <button class="btn btn-secondary btn-sm" onclick="rentalMaintenance('${r.id}')">Maintenance</button>
+        <button class="btn btn-secondary btn-sm" onclick="rentalPurchase('${r.id}')">Purchase</button>
+        <button class="btn btn-secondary btn-sm" style="color:#f87171;border-color:#f87171" onclick="rentalEndEarly('${r.id}')">End Early</button>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+window.renderAcctRentals = renderAcctRentals;
+
+function rentalExtend(rentalId) {
+  Toast.info('Coming Soon', 'Extension requests will be available shortly.');
+}
+window.rentalExtend = rentalExtend;
+
+function rentalMaintenance(rentalId) {
+  Toast.info('Request Sent', 'A maintenance visit has been scheduled.');
+}
+window.rentalMaintenance = rentalMaintenance;
+
+function rentalPurchase(rentalId) {
+  const r = Store.findById(WB.KEYS.rentals, rentalId);
+  if (!r) return;
+  const plan = RENTAL_PLANS[r.modelId];
+  if (!plan) return;
+  Toast.info('Purchase Request', `Purchase price: ${fmtMoney(plan.retailPrice)}. Our team will contact you.`);
+}
+window.rentalPurchase = rentalPurchase;
+
+function rentalEndEarly(rentalId) {
+  if (!confirm('End this rental early? Early termination fees may apply.')) return;
+  Store.updateItem(WB.KEYS.rentals, rentalId, { status: 'ended' });
+  Toast.success('Rental Ended', 'Your rental has been ended. We will arrange pickup.');
+  renderAcctRentals();
+}
+window.rentalEndEarly = rentalEndEarly;
+
+document.addEventListener('DOMContentLoaded', function () {
+  const rfCardNum = document.getElementById('rf-card-num');
+  if (rfCardNum) {
+    rfCardNum.addEventListener('input', function () {
+      let v = this.value.replace(/\D/g,'').slice(0,16);
+      this.value = v.replace(/(.{4})/g,'$1 ').trim();
+    });
+  }
+  const rfCardExp = document.getElementById('rf-card-exp');
+  if (rfCardExp) {
+    rfCardExp.addEventListener('input', function () {
+      let v = this.value.replace(/\D/g,'').slice(0,4);
+      if (v.length >= 3) v = v.slice(0,2) + '/' + v.slice(2);
+      this.value = v;
+    });
+  }
+  const rfAgree = document.getElementById('rf-agree-checkbox');
+  if (rfAgree) rfAgree.addEventListener('change', updateRfNextBtn);
+});
+
+// ============================================================
+// IN-APP MESSAGING
+// ============================================================
+let rfCurrentThreadId = null;
+
+function openChatScreen(orderId) {
+  const order = Orders.getById(orderId);
+  if (!order) return;
+
+  const threads = Store.getList(WB.KEYS.messages);
+  let thread = threads.find(t => t.orderId === orderId);
+
+  if (!thread) {
+    thread = {
+      id:         uid('msg_thread'),
+      orderId:    orderId,
+      customerId: order.customerId,
+      driverId:   order.driverId || 'drv_1',
+      driverName: 'Your Driver',
+      messages:   [],
+      createdAt:  Date.now(),
+    };
+    Store.push(WB.KEYS.messages, thread);
+  }
+
+  rfCurrentThreadId = thread.id;
+
+  const driverName = document.getElementById('chat-driver-name');
+  if (driverName) {
+    const drivers = Store.getList(WB.KEYS.drivers);
+    const driver  = drivers.find(d => d.id === thread.driverId);
+    driverName.textContent = driver ? driver.name : 'Your Driver';
+  }
+
+  const screen = document.getElementById('chat-screen');
+  if (screen) screen.classList.add('open');
+
+  renderChatMessages(thread.id);
+}
+window.openChatScreen = openChatScreen;
+
+function closeChatScreen() {
+  const screen = document.getElementById('chat-screen');
+  if (screen) screen.classList.remove('open');
+  rfCurrentThreadId = null;
+}
+window.closeChatScreen = closeChatScreen;
+
+function renderChatMessages(threadId) {
+  const threads = Store.getList(WB.KEYS.messages);
+  const thread  = threads.find(t => t.id === threadId);
+  const el      = document.getElementById('chat-messages');
+  if (!el) return;
+
+  if (!thread || !thread.messages || !thread.messages.length) {
+    el.innerHTML = `<div style="text-align:center;color:var(--white-40);font-size:.85rem;padding:20px 0">Say hello to your driver!</div>`;
+    return;
+  }
+
+  el.innerHTML = thread.messages.map(msg => {
+    const isCustomer = msg.senderRole === 'customer';
+    return `<div style="display:flex;justify-content:${isCustomer ? 'flex-end' : 'flex-start'};margin-bottom:8px;animation:slideUpMsg .2s ease">
+      <div style="max-width:75%;padding:10px 14px;border-radius:${isCustomer ? '18px 18px 4px 18px' : '18px 18px 18px 4px'};background:${isCustomer ? 'var(--cyan)' : '#1e3a4a'};color:${isCustomer ? '#000' : 'var(--white-90)'};font-size:.875rem;line-height:1.4">
+        ${msg.text}
+        <div style="font-size:.65rem;opacity:.6;text-align:right;margin-top:4px">${fmtTime(msg.sentAt)}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  el.scrollTop = el.scrollHeight;
+}
+
+function sendChatMessage() {
+  if (!rfCurrentThreadId || !currentCustomer) return;
+  const input = document.getElementById('chat-input');
+  const text  = input ? input.value.trim() : '';
+  if (!text) return;
+
+  const threads = Store.getList(WB.KEYS.messages);
+  const thread  = threads.find(t => t.id === rfCurrentThreadId);
+  if (!thread) return;
+
+  const msg = {
+    id:         uid('msg'),
+    senderRole: 'customer',
+    senderId:   currentCustomer.id,
+    text:       text,
+    sentAt:     Date.now(),
+  };
+
+  if (!thread.messages) thread.messages = [];
+  thread.messages.push(msg);
+  Store.updateItem(WB.KEYS.messages, rfCurrentThreadId, { messages: thread.messages });
+
+  if (input) input.value = '';
+  renderChatMessages(rfCurrentThreadId);
+
+  showTypingIndicator();
+}
+window.sendChatMessage = sendChatMessage;
+
+function showTypingIndicator() {
+  const el = document.getElementById('chat-typing');
+  if (!el) return;
+  el.style.display = 'flex';
+  const msgsEl = document.getElementById('chat-messages');
+  if (msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight;
+
+  setTimeout(() => {
+    el.style.display = 'none';
+    simulateDriverReply();
+  }, 2000 + Math.random() * 1500);
+}
+
+function simulateDriverReply() {
+  if (!rfCurrentThreadId) return;
+  const replies = [
+    'On my way! ETA about 10 minutes.',
+    'Got your message, almost there!',
+    'Thanks for letting me know. See you soon!',
+    'I\'m just down the street, be there shortly.',
+    'Sure thing! I\'ll take care of it.',
+  ];
+  const text = replies[Math.floor(Math.random() * replies.length)];
+
+  const threads = Store.getList(WB.KEYS.messages);
+  const thread  = threads.find(t => t.id === rfCurrentThreadId);
+  if (!thread) return;
+
+  const msg = {
+    id:         uid('msg'),
+    senderRole: 'driver',
+    senderId:   thread.driverId || 'drv_1',
+    text:       text,
+    sentAt:     Date.now(),
+  };
+
+  if (!thread.messages) thread.messages = [];
+  thread.messages.push(msg);
+  Store.updateItem(WB.KEYS.messages, rfCurrentThreadId, { messages: thread.messages });
+  renderChatMessages(rfCurrentThreadId);
+}
+
+function fmtTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  const chatInput = document.getElementById('chat-input');
+  if (chatInput) {
+    chatInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
+    });
+  }
+});

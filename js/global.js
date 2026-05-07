@@ -22,7 +22,9 @@ const WB = {
     cartKey:      'wb_cart',
     pickups:      'wb_pickups',
     blockedDates: 'wb_blocked_dates',
-    seeded:       'wb_seeded_v6',
+    rentals:      'wb_rentals',
+    messages:     'wb_messages',
+    seeded:       'wb_seeded_v7',
   },
   CREDS: {
     customer: { email: 'demo@waterboy.com',   password: 'water2026' },
@@ -56,6 +58,36 @@ const SUBSCRIPTION_PLANS = {
     { id:'plan_alk_family', name:'Alkaline Family', price:4500, jugs:4,  freq:'Monthly', tag:'Only us!', tagColor:'cyan',   features:['4 × 5-gal alkaline','pH 8.5+','Priority scheduling'] },
     { id:'plan_alk_max',    name:'Alkaline Max',    price:6000, jugs:6,  freq:'Monthly', tag:'Only us!', tagColor:'cyan',   features:['6 × 5-gal alkaline','pH 8.5+','Cooler rental add-on'] },
   ],
+};
+
+// ============================================================
+// RENTAL PLANS
+// ============================================================
+const RENTAL_PLANS = {
+  r_bottom: {
+    id: 'r_bottom', name: 'Brio Bottom-Load Dispenser',
+    desc: 'Hot, cold, and room temperature. Sleek stainless steel. Bottom-load — no heavy lifting.',
+    image: 'images/Screenshot 2025-11-03 152515.png',
+    retailPrice: 27999,
+    tiers: [
+      { months:1,  price:4999, label:'1 Month',  savings:0,     totalCost:4999  },
+      { months:3,  price:3999, label:'3 Months', savings:3000,  totalCost:11997 },
+      { months:6,  price:2999, label:'6 Months', savings:12000, totalCost:17994 },
+      { months:12, price:1999, label:'12 Months',savings:36000, totalCost:23988, bestValue:true },
+    ],
+  },
+  r_top: {
+    id: 'r_top', name: 'Brio Top-Load Dispenser',
+    desc: 'Classic top-load design. Hot and cold water. Compact and reliable.',
+    image: 'images/Screenshot 2025-11-03 152515.png',
+    retailPrice: 12999,
+    tiers: [
+      { months:1,  price:2999, label:'1 Month',  savings:0,    totalCost:2999  },
+      { months:3,  price:2499, label:'3 Months', savings:1500, totalCost:7497  },
+      { months:6,  price:1999, label:'6 Months', savings:6000, totalCost:11994 },
+      { months:12, price:1499, label:'12 Months',savings:18000,totalCost:17988, bestValue:true },
+    ],
+  },
 };
 
 // ============================================================
@@ -391,6 +423,20 @@ const SEED = {
     { id:'notif_5', userId:'cust_1', type:'loyalty',      title:'You earned 70 pts!',      body:'Keep ordering to reach Silver status (500 pts away).',                 read:true,  createdAt:daysAgo(8),   orderId:null },
   ],
 
+  rentals: [
+    { id:'rent_1', customerId:'cust_1', customerName:'Alex Torres', dispenserModel:'r_bottom', dispenserName:'Brio Bottom-Load Dispenser', months:6, monthlyPrice:2999, securityDeposit:5000, startDate:daysAgo(45), endDate:daysAgo(-135), status:'active', agreementSignedAt:daysAgo(45), address:'5842 Laguna Blvd, Elk Grove', paymentHistory:[{date:daysAgo(45),amount:7999,desc:'First month + deposit'},{date:daysAgo(15),amount:2999,desc:'Month 2 payment'}] },
+    { id:'rent_2', customerId:'cust_5', customerName:'Jordan Rivera', dispenserModel:'r_top', dispenserName:'Brio Top-Load Dispenser', months:3, monthlyPrice:2499, securityDeposit:5000, startDate:daysAgo(60), endDate:daysAgo(-30), status:'ending_soon', agreementSignedAt:daysAgo(60), address:'1200 Harbour Point Dr, Elk Grove', paymentHistory:[{date:daysAgo(60),amount:7499,desc:'First month + deposit'},{date:daysAgo(30),amount:2499,desc:'Month 2 payment'}] },
+    { id:'rent_3', customerId:'cust_9', customerName:'Avery Kim', dispenserModel:'r_bottom', dispenserName:'Brio Bottom-Load Dispenser', months:12, monthlyPrice:1999, securityDeposit:5000, startDate:daysAgo(30), endDate:daysAgo(-335), status:'active', agreementSignedAt:daysAgo(30), address:'6625 Laguna Blvd #204, Elk Grove', paymentHistory:[{date:daysAgo(30),amount:6999,desc:'First month + deposit'}] },
+    { id:'rent_4', customerId:'cust_3', customerName:'Morgan Chen', dispenserModel:'r_top', dispenserName:'Brio Top-Load Dispenser', months:1, monthlyPrice:2999, securityDeposit:5000, startDate:daysAgo(35), endDate:daysAgo(-5), status:'ending_soon', agreementSignedAt:daysAgo(35), address:'3401 Elk Grove Blvd, Elk Grove', paymentHistory:[{date:daysAgo(35),amount:7999,desc:'First month + deposit'}] },
+  ],
+
+  messages: [
+    { id:'msg_thread_1', orderId:'ord_s001', driverId:'drv_1', customerId:'cust_1', driverName:'Marcus J.', customerName:'Alex Torres', driverPhone:'(916) 555-0101', customerPhone:'(916) 555-2001', messages:[{from:'driver',text:"Hi! I'm on my way to your location. Should be there in about 15 minutes.",timestamp:'2026-05-06T14:15:00',read:true},{from:'customer',text:"Thanks Marcus! Can you leave them by the garage door?",timestamp:'2026-05-06T14:16:00',read:true},{from:'driver',text:"Absolutely, I'll put them right by the garage. See you soon!",timestamp:'2026-05-06T14:17:00',read:true}], status:'active', flagged:false, lastActivity:new Date('2026-05-06T14:17:00').getTime() },
+    { id:'msg_thread_2', orderId:'ord_s004', driverId:'drv_2', customerId:'cust_5', driverName:'Sofia R.', customerName:'Jordan Rivera', driverPhone:'(916) 555-0102', customerPhone:'(916) 555-2005', messages:[{from:'driver',text:"Good morning! Heading your way now. ETA around 20 minutes.",timestamp:'2026-05-06T09:05:00',read:true},{from:'customer',text:"Perfect! Just leave it at the front door, I'll be home all day.",timestamp:'2026-05-06T09:07:00',read:true},{from:'driver',text:"Will do! Any gate code I should know about?",timestamp:'2026-05-06T09:08:00',read:true},{from:'customer',text:"No gate, just come right in. The door is on the left side.",timestamp:'2026-05-06T09:09:00',read:false}], status:'active', flagged:false, lastActivity:new Date('2026-05-06T09:09:00').getTime() },
+    { id:'msg_thread_3', orderId:'ord_s003', driverId:'drv_2', customerId:'cust_9', driverName:'Sofia R.', customerName:'Avery Kim', driverPhone:'(916) 555-0102', customerPhone:'(916) 555-2009', messages:[{from:'customer',text:"Hi! My order says it's late. Is there a problem with my delivery?",timestamp:'2026-05-06T11:30:00',read:true},{from:'driver',text:"I'm sorry for the delay! Had a longer stop before yours. On my way now.",timestamp:'2026-05-06T11:35:00',read:true},{from:'customer',text:"Ok thank you for letting me know. I was worried.",timestamp:'2026-05-06T11:36:00',read:false}], status:'active', flagged:true, lastActivity:new Date('2026-05-06T11:36:00').getTime() },
+    { id:'msg_thread_4', orderId:'ord_s006', driverId:'drv_1', customerId:'cust_15', driverName:'Marcus J.', customerName:'Finley Adams', driverPhone:'(916) 555-0101', customerPhone:'(916) 555-2015', messages:[{from:'driver',text:"Headed to your place now! Should arrive by 2:30.",timestamp:'2026-05-06T13:45:00',read:true},{from:'customer',text:"Great! Please ring the bell when you arrive.",timestamp:'2026-05-06T13:47:00',read:true}], status:'active', flagged:false, lastActivity:new Date('2026-05-06T13:47:00').getTime() },
+  ],
+
   inventory: [
     { id:'inv_1', productId:'p_5g1', label:'5-Gal Water Jugs',         qty:480, unit:'bottles', lowAt:50 },
     { id:'inv_2', productId:'p_5g2', label:'5-Gal Jugs w/ Spigot',     qty:120, unit:'bottles', lowAt:20 },
@@ -436,6 +482,8 @@ function seedData() {
   Store.set(WB.KEYS.inventory,  SEED.inventory);
   Store.set(WB.KEYS.settings,   SEED.settings);
   Store.set(WB.KEYS.pickups,    []);
+  Store.set(WB.KEYS.rentals,   SEED.rentals);
+  Store.set(WB.KEYS.messages,  SEED.messages);
 
   // Pre-block all Sundays for the next 6 months
   const blockedSundays = [];

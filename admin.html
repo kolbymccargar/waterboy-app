@@ -115,6 +115,14 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
         <span class="nav-label">Payments</span>
       </div>
+      <div class="sidebar-nav-item" data-page="rentals">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span class="nav-label">Rentals</span>
+      </div>
+      <div class="sidebar-nav-item" data-page="messages">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        <span class="nav-label">Messages</span>
+      </div>
 
       <div class="sidebar-section-label">Analytics</div>
       <div class="sidebar-nav-item" data-page="reports">
@@ -669,6 +677,43 @@
               <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:3px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3)"></div>Sunday (always blocked)</div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- RENTALS PAGE -->
+      <div id="admin-page-rentals" class="admin-page">
+        <div class="page-header">
+          <div><div class="page-header-title">Rentals</div><div class="page-header-sub" id="rentals-admin-sub">Dispenser rental management</div></div>
+        </div>
+        <div id="rentals-stats-strip" class="stats-strip" style="margin-bottom:24px"></div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <div style="padding:16px 20px;border-bottom:1px solid var(--blue-border);display:flex;align-items:center;justify-content:space-between">
+            <div style="font-weight:600;color:var(--white-90)">Active Rentals</div>
+            <span id="rentals-expiring-badge" style="display:none;font-size:.75rem;background:rgba(245,158,11,.15);color:#f59e0b;padding:3px 10px;border-radius:20px;border:1px solid rgba(245,158,11,.3)">⚠ Expiring Soon</span>
+          </div>
+          <div id="rentals-admin-table" style="overflow-x:auto">
+            <table class="data-table">
+              <thead><tr><th>Customer</th><th>Model</th><th>Duration</th><th>Monthly</th><th>End Date</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody id="rentals-admin-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- MESSAGES PAGE -->
+      <div id="admin-page-messages" class="admin-page">
+        <div class="page-header">
+          <div><div class="page-header-title">Messages</div><div class="page-header-sub">All driver–customer conversations</div></div>
+          <button class="btn btn-secondary btn-sm" onclick="exportMessagesCSV()">Export CSV</button>
+        </div>
+        <div id="msg-stats-strip" class="stats-strip" style="margin-bottom:24px"></div>
+        <div class="card" style="padding:0;overflow:hidden;margin-bottom:20px">
+          <div style="padding:16px 20px;border-bottom:1px solid var(--blue-border)"><div style="font-weight:600;color:var(--danger)">⚑ Flagged Conversations</div></div>
+          <div id="admin-flagged-msgs" style="padding:16px 20px"></div>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <div style="padding:16px 20px;border-bottom:1px solid var(--blue-border)"><div style="font-weight:600;color:var(--white-90)">All Conversations</div></div>
+          <div id="admin-all-msgs" style="padding:16px 20px"></div>
         </div>
       </div>
 

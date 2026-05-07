@@ -119,7 +119,7 @@ function drvNavigateTo(page) {
   const pageEl = document.getElementById(`drv-page-${page}`);
   if (pageEl) pageEl.classList.add('active');
 
-  const renderers = { route: renderRoute, bottles: renderBottles, map: renderDrvMap, account: renderAccount };
+  const renderers = { route: renderRoute, bottles: renderBottles, map: renderDrvMap, account: renderAccount, messages: renderDrvMessages };
   if (renderers[page]) renderers[page]();
 }
 
@@ -196,7 +196,8 @@ function renderStopList(orders) {
           </a>
           <button class="btn btn-primary btn-sm flex-1" onclick="event.stopPropagation();openCompleteModal('${order.id}')">✓ Complete</button>
           <button class="btn btn-sm" style="background:rgba(239,68,68,0.12);color:var(--danger);border:1px solid rgba(239,68,68,0.25)" onclick="event.stopPropagation();markMissed('${order.id}')">Missed</button>
-        </div>` : isDone ? `
+        </div>
+        <button class="btn btn-secondary btn-sm btn-full" style="margin-top:8px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:var(--success)" onclick="event.stopPropagation();openDrvChat('${order.id}')">💬 Message Customer</button>` : isDone ? `
         <div style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:.8125rem;color:var(--success);font-weight:600">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><polyline points="20 6 9 17 4 12"/></svg>Delivery completed
         </div>` : ''}
@@ -493,3 +494,163 @@ function renderDrvMap() {
     </div>`;
   }).join('');
 }
+
+// ============================================================
+// DRIVER MESSAGES
+// ============================================================
+let drvCurrentThreadId = null;
+
+function renderDrvMessages() {
+  const el = document.getElementById('drv-messages-list');
+  if (!el || !currentDriver) return;
+
+  const threads = Store.getList(WB.KEYS.messages).filter(t => t.driverId === currentDriver.id);
+
+  if (!threads.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-state-icon">💬</div><div class="empty-state-title">No messages</div><div class="empty-state-sub">Customer messages during deliveries will appear here.</div></div>`;
+    return;
+  }
+
+  el.innerHTML = threads.map(thread => {
+    const lastMsg  = thread.messages && thread.messages.length ? thread.messages[thread.messages.length - 1] : null;
+    const unread   = thread.messages ? thread.messages.filter(m => m.senderRole === 'customer' && !m.readByDriver).length : 0;
+    const cust     = Store.findById(WB.KEYS.customers, thread.customerId);
+    const custName = cust ? cust.name : 'Customer';
+    return `<div style="background:var(--blue-card);border:1px solid var(--blue-border);border-radius:var(--radius-md);padding:14px;cursor:pointer;display:flex;align-items:center;gap:12px" onclick="openDrvChat('${thread.orderId || ''}', '${thread.id}')">
+      <div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),#0099bb);display:flex;align-items:center;justify-content:center;font-weight:700;color:#000;flex-shrink:0">${custName.charAt(0)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;color:var(--white-90)">${custName}</div>
+        <div style="font-size:.8rem;color:var(--white-40);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${lastMsg ? lastMsg.text : 'No messages yet'}</div>
+      </div>
+      ${unread > 0 ? `<span style="background:var(--cyan);color:#000;border-radius:50%;width:20px;height:20px;font-size:.7rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${unread}</span>` : ''}
+    </div>`;
+  }).join('');
+
+  updateDrvMsgBadge();
+}
+window.renderDrvMessages = renderDrvMessages;
+
+function updateDrvMsgBadge() {
+  if (!currentDriver) return;
+  const threads  = Store.getList(WB.KEYS.messages).filter(t => t.driverId === currentDriver.id);
+  const unreadTotal = threads.reduce((sum, t) => {
+    return sum + (t.messages ? t.messages.filter(m => m.senderRole === 'customer' && !m.readByDriver).length : 0);
+  }, 0);
+  const badge = document.getElementById('drv-msg-badge');
+  if (badge) {
+    if (unreadTotal > 0) {
+      badge.textContent = unreadTotal;
+      badge.style.display = 'flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+}
+
+function openDrvChat(orderId, threadId) {
+  const threads = Store.getList(WB.KEYS.messages);
+  let thread = threadId ? threads.find(t => t.id === threadId) : threads.find(t => t.orderId === orderId);
+
+  if (!thread && orderId) {
+    const order = Orders.getById(orderId);
+    if (!order) return;
+    thread = {
+      id:         uid('msg_thread'),
+      orderId:    orderId,
+      customerId: order.customerId,
+      driverId:   currentDriver ? currentDriver.id : 'drv_1',
+      messages:   [],
+      createdAt:  Date.now(),
+    };
+    Store.push(WB.KEYS.messages, thread);
+  }
+  if (!thread) return;
+
+  drvCurrentThreadId = thread.id;
+
+  const cust = Store.findById(WB.KEYS.customers, thread.customerId);
+  const nameEl = document.getElementById('drv-chat-cust-name');
+  if (nameEl) nameEl.textContent = cust ? cust.name : 'Customer';
+
+  const screen = document.getElementById('drv-chat-screen');
+  if (screen) screen.classList.add('open');
+
+  renderDrvChatMessages(thread.id);
+
+  // Mark all customer messages as read
+  if (thread.messages) {
+    thread.messages = thread.messages.map(m => m.senderRole === 'customer' ? { ...m, readByDriver: true } : m);
+    Store.updateItem(WB.KEYS.messages, thread.id, { messages: thread.messages });
+  }
+  updateDrvMsgBadge();
+}
+window.openDrvChat = openDrvChat;
+
+function closeDrvChat() {
+  const screen = document.getElementById('drv-chat-screen');
+  if (screen) screen.classList.remove('open');
+  drvCurrentThreadId = null;
+}
+window.closeDrvChat = closeDrvChat;
+
+function renderDrvChatMessages(threadId) {
+  const threads = Store.getList(WB.KEYS.messages);
+  const thread  = threads.find(t => t.id === threadId);
+  const el      = document.getElementById('drv-chat-messages');
+  if (!el) return;
+
+  if (!thread || !thread.messages || !thread.messages.length) {
+    el.innerHTML = `<div style="text-align:center;color:var(--white-40);font-size:.85rem;padding:20px 0">Start the conversation!</div>`;
+    return;
+  }
+
+  el.innerHTML = thread.messages.map(msg => {
+    const isDriver = msg.senderRole === 'driver';
+    const time = msg.sentAt ? new Date(msg.sentAt).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', hour12:true }) : '';
+    return `<div style="display:flex;justify-content:${isDriver ? 'flex-end' : 'flex-start'};margin-bottom:8px">
+      <div style="max-width:75%;padding:10px 14px;border-radius:${isDriver ? '18px 18px 4px 18px' : '18px 18px 18px 4px'};background:${isDriver ? 'var(--success)' : '#1e3a4a'};color:${isDriver ? '#000' : 'var(--white-90)'};font-size:.875rem;line-height:1.4">
+        ${msg.text}
+        <div style="font-size:.65rem;opacity:.6;text-align:right;margin-top:4px">${time}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  el.scrollTop = el.scrollHeight;
+}
+
+function sendDriverMessage() {
+  if (!drvCurrentThreadId || !currentDriver) return;
+  const input = document.getElementById('drv-chat-input');
+  const text  = input ? input.value.trim() : '';
+  if (!text) return;
+
+  const threads = Store.getList(WB.KEYS.messages);
+  const thread  = threads.find(t => t.id === drvCurrentThreadId);
+  if (!thread) return;
+
+  const msg = {
+    id:         uid('msg'),
+    senderRole: 'driver',
+    senderId:   currentDriver.id,
+    text:       text,
+    sentAt:     Date.now(),
+  };
+
+  if (!thread.messages) thread.messages = [];
+  thread.messages.push(msg);
+  Store.updateItem(WB.KEYS.messages, drvCurrentThreadId, { messages: thread.messages });
+
+  if (input) input.value = '';
+  renderDrvChatMessages(drvCurrentThreadId);
+}
+window.sendDriverMessage = sendDriverMessage;
+
+document.addEventListener('DOMContentLoaded', function () {
+  const inp = document.getElementById('drv-chat-input');
+  if (inp) {
+    inp.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendDriverMessage(); }
+    });
+  }
+  updateDrvMsgBadge();
+});

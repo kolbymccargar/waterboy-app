@@ -138,7 +138,7 @@ function adminNavigateTo(page) {
     products: 'Products', routes: 'Route Management', drivers: 'Employees',
     inventory: 'Inventory', payments: 'Payments & Billing', promos: 'Promotions',
     zones: 'Delivery Zones', reports: 'Reports & Analytics', settings: 'Settings',
-    schedule: 'Employee Schedule',
+    schedule: 'Employee Schedule', rentals: 'Rentals', messages: 'Messages',
   };
   const titleEl = document.getElementById('topbar-page-title');
   if (titleEl) titleEl.textContent = titleMap[page] || page;
@@ -148,7 +148,7 @@ function adminNavigateTo(page) {
     products: renderProductsPage, drivers: renderDriversPage, inventory: renderInventoryPage,
     promos: renderPromosPage, zones: renderZonesPage, reports: renderReportsPage,
     settings: renderSettingsPage, routes: renderRoutesPage, payments: renderPaymentsPage,
-    schedule: renderSchedulePage,
+    schedule: renderSchedulePage, rentals: renderRentalsPage, messages: renderMessagesPage,
   };
   if (renderers[page]) renderers[page]();
 }
@@ -1975,6 +1975,153 @@ function renderSchedulePage() {
       </div>
     </div>`;
 }
+
+// ============================================================
+// RENTALS PAGE
+// ============================================================
+function renderRentalsPage() {
+  const rentals = Store.getList(WB.KEYS.rentals);
+  const active  = rentals.filter(r => r.status === 'active');
+  const now     = Date.now();
+  const soon    = active.filter(r => r.endDate && r.endDate - now < 14 * 24 * 60 * 60 * 1000);
+  const monthlyRevenue = active.reduce((sum, r) => sum + (r.monthlyPrice || 0), 0);
+
+  const subEl = document.getElementById('rentals-admin-sub');
+  if (subEl) subEl.textContent = `${active.length} active rental${active.length !== 1 ? 's' : ''}`;
+
+  const stripEl = document.getElementById('rentals-stats-strip');
+  if (stripEl) {
+    stripEl.innerHTML = `
+      <div class="stat-card"><div class="stat-value">${active.length}</div><div class="stat-label">Active Rentals</div></div>
+      <div class="stat-card"><div class="stat-value" style="color:#f59e0b">${soon.length}</div><div class="stat-label">Expiring ≤14 Days</div></div>
+      <div class="stat-card"><div class="stat-value" style="color:var(--cyan)">${fmtMoney(monthlyRevenue)}</div><div class="stat-label">Monthly Rental Revenue</div></div>
+      <div class="stat-card"><div class="stat-value">${rentals.filter(r=>r.status==='ended').length}</div><div class="stat-label">Returned</div></div>`;
+  }
+
+  const badge = document.getElementById('rentals-expiring-badge');
+  if (badge) badge.style.display = soon.length ? 'inline-block' : 'none';
+
+  const tbody = document.getElementById('rentals-admin-tbody');
+  if (!tbody) return;
+
+  if (!rentals.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--white-40)">No rentals yet.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rentals.map(r => {
+    const endDate = r.endDate ? new Date(r.endDate).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
+    const isExpiring = r.status === 'active' && r.endDate && r.endDate - now < 14 * 24 * 60 * 60 * 1000;
+    const statusBadge = r.status === 'active'
+      ? (isExpiring ? '<span class="badge" style="background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3)">Expiring Soon</span>' : '<span class="badge badge-green">Active</span>')
+      : '<span class="badge badge-gray">Ended</span>';
+    return `<tr>
+      <td>${r.customerName || r.customerId}</td>
+      <td>${r.modelName || r.modelId}</td>
+      <td>${r.months} mo</td>
+      <td>${fmtMoney(r.monthlyPrice || 0)}</td>
+      <td>${endDate}</td>
+      <td>${statusBadge}</td>
+      <td>
+        ${r.status === 'active' ? `
+        <button class="btn btn-secondary btn-sm" onclick="adminExtendRental('${r.id}')">Extend</button>
+        <button class="btn btn-sm" style="background:rgba(239,68,68,.1);color:var(--danger);border:1px solid rgba(239,68,68,.25);margin-left:4px" onclick="adminTerminateRental('${r.id}')">End</button>` : '—'}
+      </td>
+    </tr>`;
+  }).join('');
+}
+window.renderRentalsPage = renderRentalsPage;
+
+function adminExtendRental(rentalId) {
+  Toast.info('Coming Soon', 'Rental extension will be available in a future update.');
+}
+window.adminExtendRental = adminExtendRental;
+
+function adminTerminateRental(rentalId) {
+  if (!confirm('End this rental early?')) return;
+  Store.updateItem(WB.KEYS.rentals, rentalId, { status: 'ended' });
+  Toast.success('Rental Ended', 'Rental has been marked as ended.');
+  renderRentalsPage();
+}
+window.adminTerminateRental = adminTerminateRental;
+
+// ============================================================
+// MESSAGES PAGE
+// ============================================================
+const FLAG_KEYWORDS = ['complaint','refund','problem','angry','late','cancel','wrong','broken','missing','angry'];
+
+function renderMessagesPage() {
+  const threads = Store.getList(WB.KEYS.messages);
+  const total   = threads.length;
+  const totalMsgs = threads.reduce((sum, t) => sum + (t.messages ? t.messages.length : 0), 0);
+  const flagged = threads.filter(t => t.flagged || hasFlaggedKeyword(t));
+
+  const stripEl = document.getElementById('msg-stats-strip');
+  if (stripEl) {
+    stripEl.innerHTML = `
+      <div class="stat-card"><div class="stat-value">${total}</div><div class="stat-label">Conversations</div></div>
+      <div class="stat-card"><div class="stat-value">${totalMsgs}</div><div class="stat-label">Total Messages</div></div>
+      <div class="stat-card"><div class="stat-value" style="color:var(--danger)">${flagged.length}</div><div class="stat-label">Flagged</div></div>`;
+  }
+
+  const flagEl = document.getElementById('admin-flagged-msgs');
+  if (flagEl) {
+    if (!flagged.length) {
+      flagEl.innerHTML = `<div style="color:var(--white-40);font-size:.875rem">No flagged conversations.</div>`;
+    } else {
+      flagEl.innerHTML = flagged.map(t => renderAdminThread(t, true)).join('');
+    }
+  }
+
+  const allEl = document.getElementById('admin-all-msgs');
+  if (allEl) {
+    if (!threads.length) {
+      allEl.innerHTML = `<div style="color:var(--white-40);font-size:.875rem">No conversations yet.</div>`;
+    } else {
+      allEl.innerHTML = threads.map(t => renderAdminThread(t, false)).join('');
+    }
+  }
+}
+window.renderMessagesPage = renderMessagesPage;
+
+function hasFlaggedKeyword(thread) {
+  if (!thread.messages) return false;
+  return thread.messages.some(m => FLAG_KEYWORDS.some(kw => m.text && m.text.toLowerCase().includes(kw)));
+}
+
+function renderAdminThread(thread, highlight) {
+  const cust     = Store.findById(WB.KEYS.customers, thread.customerId);
+  const custName = cust ? cust.name : thread.customerId;
+  const drivers  = Store.getList(WB.KEYS.drivers);
+  const driver   = drivers.find(d => d.id === thread.driverId);
+  const drvName  = driver ? driver.name : thread.driverId || 'Driver';
+  const msgs     = thread.messages || [];
+
+  const msgHtml = msgs.map(m => {
+    const isCustomer = m.senderRole === 'customer';
+    let text = m.text || '';
+    FLAG_KEYWORDS.forEach(kw => {
+      text = text.replace(new RegExp('\\b' + kw + '\\b', 'gi'), `<mark style="background:rgba(239,68,68,.25);color:#fca5a5;border-radius:2px;padding:0 2px">${kw}</mark>`);
+    });
+    return `<div style="display:flex;gap:8px;margin-bottom:6px;align-items:flex-start">
+      <span style="font-size:.7rem;font-weight:600;color:${isCustomer ? 'var(--cyan)' : 'var(--success)'};min-width:60px;padding-top:2px">${isCustomer ? custName.split(' ')[0] : drvName.split(' ')[0]}</span>
+      <span style="font-size:.8125rem;color:var(--white-70);line-height:1.4">${text}</span>
+    </div>`;
+  }).join('');
+
+  return `<div style="background:${highlight ? 'rgba(239,68,68,.05)' : 'var(--blue-card)'};border:1px solid ${highlight ? 'rgba(239,68,68,.3)' : 'var(--blue-border)'};border-radius:var(--radius-md);padding:14px;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:.8125rem;font-weight:600;color:var(--white-90)">${custName} ↔ ${drvName}</div>
+      ${highlight ? '<span style="font-size:.7rem;background:rgba(239,68,68,.2);color:var(--danger);padding:2px 8px;border-radius:10px;font-weight:600">FLAGGED</span>' : ''}
+    </div>
+    <div style="max-height:140px;overflow-y:auto">${msgHtml || '<div style="color:var(--white-40);font-size:.8rem">No messages</div>'}</div>
+  </div>`;
+}
+
+function exportMessagesCSV() {
+  Toast.info('Coming Soon', 'CSV export will be available in a future update.');
+}
+window.exportMessagesCSV = exportMessagesCSV;
 
 // ============================================================
 // MODALS
